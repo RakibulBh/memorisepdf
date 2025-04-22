@@ -1,21 +1,43 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
+import Navbar from "@/components/Navbar";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const lora = Lora({
+  variable: "--font-lora",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "RelateWMe - Anonymous Chat",
-  description: "Connect and chat with random strangers anonymously",
+  title: "Unmemorizable - Convert Slides to Quizzes & Flashcards",
+  description:
+    "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
+  keywords: [
+    "flashcards",
+    "quizzes",
+    "learning tools",
+    "study aids",
+    "slide conversion",
+  ],
+  openGraph: {
+    title: "Unmemorizable - Convert Slides to Quizzes & Flashcards",
+    description:
+      "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Unmemorizable - Convert Slides to Quizzes & Flashcards",
+    description:
+      "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
+  },
 };
 
 export default function RootLayout({
@@ -26,9 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-950 text-gray-50`}
+        className={`${inter.variable} ${lora.variable} antialiased text-gray-900`}
       >
         <Toaster />
+        <Navbar />
         {children}
       </body>
     </html>

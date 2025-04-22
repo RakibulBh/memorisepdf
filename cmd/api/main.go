@@ -22,6 +22,9 @@ func main() {
 			db:       env.GetInt("REDIS_DB", 0),
 			protocol: env.GetInt("REDIS_PROTOCOL", 2),
 		},
+		geimini: geiminiConfig{
+			apiKey: env.GetString("GEIMINI_API_KEY", ""),
+		},
 		apiURL: env.GetString("API_URL", "http://localhost:8080"),
 	}
 
@@ -34,7 +37,6 @@ func main() {
 	app := &application{
 		config: cfg,
 		redis:  redisClient,
-		// store:  store,
 	}
 
 	mux := app.serve()

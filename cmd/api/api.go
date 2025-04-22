@@ -18,16 +18,21 @@ type redisConfig struct {
 	protocol int
 }
 
+type geiminiConfig struct {
+	apiKey string
+}
+
 type application struct {
 	config config
 	redis  *redis.Client
 }
 
 type config struct {
-	addr   string
-	env    string
-	apiURL string
-	redis  redisConfig
+	addr    string
+	env     string
+	apiURL  string
+	redis   redisConfig
+	geimini geiminiConfig
 }
 
 func (app *application) serve() http.Handler {

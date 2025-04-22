@@ -56,6 +56,9 @@ func (app *application) serve() http.Handler {
 	// Healthcheck
 	r.Get("/health", app.healthCheck)
 
+	// retrieve the pdf content
+	r.Post("/parse-presentation", app.parsePresentation)
+
 	return r
 }
 

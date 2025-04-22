@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { Upload, Check, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { toast } from "sonner";
+import parsePresentation from "@/services/requests/parse-presentation";
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -36,14 +38,23 @@ export default function UploadPage() {
 
   const handleUpload = async () => {
     if (!file) return;
-
     setUploading(true);
 
-    // Simulate upload delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/parse-file", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    const parsedPresentation = await parsePresentation(data.parsedText);
+
+    console.log("Parsed presentation", parsedPresentation);
 
     setUploading(false);
-    // Here you would handle the actual file upload to your backend
   };
 
   const resetFile = () => {
@@ -91,7 +102,8 @@ export default function UploadPage() {
                   <input
                     type="file"
                     className="hidden"
-                    accept=".ppt,.pptx,.pdf,.key"
+                    accept=".pdf"
+                    multiple={false}
                     onChange={handleFileChange}
                   />
                   <span className="px-5 py-2 bg-green-800 text-white rounded-full text-sm font-semibold cursor-pointer hover:bg-green-700 transition">

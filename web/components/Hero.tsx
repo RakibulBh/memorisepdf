@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import React from "react";
+import Link from "next/link";
 
 const SquigglyUnderline = () => (
   <svg
@@ -70,9 +71,11 @@ const Hero = () => {
         </p>
 
         <div className="flex gap-4 mt-4">
-          <button className="rounded-full bg-green-800 text-white px-5 py-2 text-sm font-semibold hover:bg-green-700 transition">
-            Sign Up Free
-          </button>
+          <Link href="/upload">
+            <button className="rounded-full bg-green-800 text-white px-5 py-2 text-sm font-semibold hover:bg-green-700 transition">
+              Upload Presentation
+            </button>
+          </Link>
           <button
             onClick={() => router.push("/upload")}
             className="rounded-full border-2 border-green-800 text-green-800 px-5 py-2 text-sm font-semibold hover:bg-green-50 transition"

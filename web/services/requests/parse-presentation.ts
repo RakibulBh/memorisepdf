@@ -1,3 +1,25 @@
+interface PresentationResponse {
+  flashcards: {
+    term: string;
+    definition: string;
+  }[];
+  quizzes: Quiz[];
+}
+
+interface Quiz {
+  question: string;
+  answers: {
+    text: string;
+    correct: boolean;
+    explanation: string;
+  }[];
+}
+
+interface Flashcard {
+  term: string;
+  definition: string;
+}
+
 const parsePresentation = async (presentationText: string) => {
   console.log("Making request to parse presentation", presentationText);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -10,7 +32,11 @@ const parsePresentation = async (presentationText: string) => {
     body: JSON.stringify({ presentation_text: presentationText }),
   });
 
-  return response.json();
+  const data = await response.json();
+
+  const parsedData: PresentationResponse = data.data;
+
+  return parsedData;
 };
 
 export default parsePresentation;

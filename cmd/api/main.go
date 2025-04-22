@@ -6,6 +6,7 @@ import (
 
 	"github.com/RakibulBh/relatewme/internal/cache"
 	"github.com/RakibulBh/relatewme/internal/env"
+	"github.com/RakibulBh/relatewme/internal/llm"
 )
 
 func main() {
@@ -23,6 +24,7 @@ func main() {
 			protocol: env.GetInt("REDIS_PROTOCOL", 2),
 		},
 		geimini: geiminiConfig{
+			model:  env.GetString("GEIMINI_MODEL", "gemini-2.0-flash-lite"),
 			apiKey: env.GetString("GEIMINI_API_KEY", ""),
 		},
 		apiURL: env.GetString("API_URL", "http://localhost:8080"),
@@ -34,9 +36,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Init geimini client
+	llmClient := llm.New(cfg.geimini.model, cfg.geimini.apiKey)
+
 	app := &application{
 		config: cfg,
 		redis:  redisClient,
+		llm:    llmClient,
 	}
 
 	mux := app.serve()

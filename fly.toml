@@ -37,3 +37,4 @@ primary_region = "lhr"
   [[http_service.ports]]
     port = 443
     handlers = ["tls", "http"]
+    http_options = { h3 = true }

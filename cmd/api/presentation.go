@@ -23,8 +23,16 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.Header().Set("Transfer-Encoding", "chunked")
+
+	// Check if HTTP/3 is being used
+	if r.ProtoMajor == 3 {
+		// HTTP/3: Only set X-Accel-Buffering
+		w.Header().Set("X-Accel-Buffering", "no")
+	} else {
+		// HTTP/1.1 or HTTP/2: Set both headers
+		w.Header().Set("X-Accel-Buffering", "no")
+		w.Header().Set("Transfer-Encoding", "chunked")
+	}
 
 	log.Printf("[%s] SSE headers set", requestID)
 

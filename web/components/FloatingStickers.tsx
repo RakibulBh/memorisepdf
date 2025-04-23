@@ -45,7 +45,7 @@ const FloatingStickers = () => {
   ]);
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none sm:block hidden">
       {stickers.map((sticker, index) => (
         <motion.div
           key={index}

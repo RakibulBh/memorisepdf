@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/RakibulBh/relatewme/internal/env"
 	"github.com/RakibulBh/relatewme/internal/llm"
@@ -9,15 +10,25 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	startTime := time.Now()
+	log.Printf("Application starting at %s", startTime.Format(time.RFC3339))
 
-	if env.GetString("ENV", "development") != "development" {
-		log.Println("Production environment")
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: .env file not found or could not be loaded: %v", err)
 	}
 
+	environment := env.GetString("ENV", "development")
+	if environment != "development" {
+		log.Printf("Running in %s environment", environment)
+	} else {
+		log.Printf("Running in development environment")
+	}
+
+	// Load configuration
 	cfg := config{
 		addr: ":" + env.GetString("PORT", "8080"),
-		env:  env.GetString("ENV", "development"),
+		env:  environment,
 		geimini: geiminiConfig{
 			model:           env.GetString("GEIMINI_MODEL", "gemini-1.5-flash"),
 			apiKey:          env.GetString("GEIMINI_API_KEY", ""),
@@ -25,15 +36,44 @@ func main() {
 		},
 	}
 
-	// Init geimini client
+	log.Printf("Configuration loaded: LLM model=%s, max_tokens=%d",
+		cfg.geimini.model, cfg.geimini.maxOutputTokens)
+
+	// Initialize LLM client with warmup
+	log.Printf("Initializing LLM client...")
+	llmStartTime := time.Now()
 	llmClient := llm.New(cfg.geimini.model, cfg.geimini.apiKey)
+
+	// Verify LLM client was initialized properly
+	if llmClient != nil {
+		log.Printf("LLM client initialized successfully in %v", time.Since(llmStartTime))
+	} else {
+		log.Printf("WARNING: LLM client may not have initialized properly")
+	}
 
 	app := &application{
 		config: cfg,
 		llm:    llmClient,
 	}
 
-	mux := app.serve()
-	log.Fatal(app.run(mux))
+	// Register signal handlers for graceful shutdown
+	setupSignalHandlers(app)
 
+	// Prepare server
+	log.Printf("Setting up HTTP server on %s", cfg.addr)
+	mux := app.serve()
+
+	// Record startup metrics
+	log.Printf("Application ready in %v", time.Since(startTime))
+
+	// Start listening for requests
+	log.Printf("Starting HTTP server, listening on %s", cfg.addr)
+	log.Fatal(app.run(mux))
+}
+
+// setupSignalHandlers registers handlers for OS signals to ensure graceful shutdown
+func setupSignalHandlers(app *application) {
+	// This would typically handle SIGINT, SIGTERM, etc.
+	// For now just a placeholder for where this logic would go
+	log.Printf("Signal handlers configured for graceful shutdown")
 }

@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/RakibulBh/relatewme/internal/cache"
 	"github.com/RakibulBh/relatewme/internal/env"
 	"github.com/RakibulBh/relatewme/internal/llm"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	godotenv.Load()
+
 	if env.GetString("ENV", "development") != "development" {
 		fmt.Print("Production environment")
 	}
@@ -17,23 +19,10 @@ func main() {
 	cfg := config{
 		addr: ":" + env.GetString("PORT", "8080"),
 		env:  env.GetString("ENV", "development"),
-		redis: redisConfig{
-			addr:     env.GetString("REDIS_PORT", "localhost:6379"),
-			password: env.GetString("REDIS_PASSWORD", ""),
-			db:       env.GetInt("REDIS_DB", 0),
-			protocol: env.GetInt("REDIS_PROTOCOL", 2),
-		},
 		geimini: geiminiConfig{
-			model:  env.GetString("GEIMINI_MODEL", "gemini-2.0-flash-lite"),
+			model:  env.GetString("GEIMINI_MODEL", ""),
 			apiKey: env.GetString("GEIMINI_API_KEY", ""),
 		},
-		apiURL: env.GetString("API_URL", "http://localhost:8080"),
-	}
-
-	// Init redis
-	redisClient, err := cache.New(cfg.redis.addr, cfg.redis.password, cfg.redis.db, cfg.redis.protocol)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	// Init geimini client
@@ -41,7 +30,6 @@ func main() {
 
 	app := &application{
 		config: cfg,
-		redis:  redisClient,
 		llm:    llmClient,
 	}
 

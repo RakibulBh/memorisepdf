@@ -8,16 +8,8 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/redis/go-redis/v9"
 	"google.golang.org/genai"
 )
-
-type redisConfig struct {
-	addr     string
-	password string
-	db       int
-	protocol int
-}
 
 type geiminiConfig struct {
 	model  string
@@ -26,15 +18,12 @@ type geiminiConfig struct {
 
 type application struct {
 	config config
-	redis  *redis.Client
 	llm    *genai.Client
 }
 
 type config struct {
 	addr    string
 	env     string
-	apiURL  string
-	redis   redisConfig
 	geimini geiminiConfig
 }
 

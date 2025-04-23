@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+/* Add styles for flashcard animations */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.flashcard-flipped .rotate-y-180 {
+  transform: rotateY(0deg);
+}
+
+.flashcard-flipped .rotate-y-0 {
+  transform: rotateY(180deg);
+}

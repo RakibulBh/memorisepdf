@@ -60,7 +60,10 @@ func (app *application) serve() http.Handler {
 	r.Get("/health", app.healthCheck)
 
 	// retrieve the pdf content
-	r.Post("/parse-presentation", app.parsePresentation)
+	r.Post("/initiate", app.initiateProcessing)
+
+	// initiate SSE
+	r.Get("/sse", app.initiateSSE)
 
 	return r
 }

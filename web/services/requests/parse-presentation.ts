@@ -20,23 +20,16 @@ interface Flashcard {
   definition: string;
 }
 
-const parsePresentation = async (presentationText: string) => {
-  console.log("Making request to parse presentation", presentationText);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-  console.log("API URL", API_URL);
-  console.log("Presentation text", presentationText);
-
-  const response = await fetch(`${API_URL}/parse-presentation`, {
+export const initiateProcessing = async (text: string) => {
+  const URL = `${process.env.NEXT_PUBLIC_API_URL}/initiate`;
+  const response = await fetch(URL, {
     method: "POST",
-    body: JSON.stringify({ presentation_text: presentationText }),
+    body: JSON.stringify({ presentation_text: text }),
   });
 
   const data = await response.json();
 
-  const parsedData: PresentationResponse = data.data;
-
-  return parsedData;
+  return data;
 };
 
-export default parsePresentation;
+export default initiateProcessing;

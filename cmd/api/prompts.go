@@ -1,5 +1,10 @@
 package main
 
+import (
+	"html"
+	"strings"
+)
+
 const (
 	presentationPrompt = `
 	You are an educational assistant tasked with creating flashcards and quizzes based on the provided text. Follow these steps to generate the materials in JSON format:
@@ -82,3 +87,35 @@ const (
 
 	`
 )
+
+// Sanitize input to prevent prompt injection
+func sanitizeInput(input string) string {
+	// Remove any attempt to use markdown code blocks which could be used to escape context
+	input = strings.ReplaceAll(input, "```", "")
+
+	// HTML encode to prevent special character usage
+	input = html.EscapeString(input)
+
+	// Remove any potential directive-like patterns
+	input = strings.ReplaceAll(input, "system:", "")
+	input = strings.ReplaceAll(input, "assistant:", "")
+	input = strings.ReplaceAll(input, "user:", "")
+	input = strings.ReplaceAll(input, "instructions:", "")
+
+	return input
+}
+
+func generatePresentationPrompt(useCase string, presentationText string) string {
+	// Sanitize the user input
+	safeText := sanitizeInput(presentationText)
+
+	switch useCase {
+	case "presentation":
+		// Create clear boundaries between system instructions and user content
+		return presentationPrompt + "\n\n### USER CONTENT START ###\n" + safeText + "\n### USER CONTENT END ###\n\nAnalyze ONLY the content between the USER CONTENT markers."
+	case "quiz":
+		return ""
+	default:
+		return ""
+	}
+}

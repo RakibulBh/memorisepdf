@@ -51,6 +51,7 @@ export default function UploadPage() {
     });
 
     sse.addEventListener("error", (event) => {
+      console.error("SSE error:", event);
       toast.error("An error occurred during processing");
       cleanup();
     });

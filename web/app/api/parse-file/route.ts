@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const fileBuffer = Buffer.from(await file.arrayBuffer());
   await fs.writeFile(tempFilePath, fileBuffer);
 
-  const pdfParser = new (PDFParser as any)(null, 1);
+  const pdfParser = new PDFParser(null, true);
 
   const pdfData = await new Promise((resolve, reject) => {
     pdfParser.on("pdfParser_dataError", reject);

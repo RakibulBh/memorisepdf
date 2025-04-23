@@ -20,8 +20,9 @@ func main() {
 		addr: ":" + env.GetString("PORT", "8080"),
 		env:  env.GetString("ENV", "development"),
 		geimini: geiminiConfig{
-			model:  env.GetString("GEIMINI_MODEL", ""),
-			apiKey: env.GetString("GEIMINI_API_KEY", ""),
+			model:           env.GetString("GEIMINI_MODEL", "gemini-1.5-flash"),
+			apiKey:          env.GetString("GEIMINI_API_KEY", ""),
+			maxOutputTokens: env.GetInt("MAX_OUTPUT_TOKENS", 4096),
 		},
 	}
 

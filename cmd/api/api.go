@@ -12,8 +12,9 @@ import (
 )
 
 type geiminiConfig struct {
-	model  string
-	apiKey string
+	model           string
+	apiKey          string
+	maxOutputTokens int
 }
 
 type application struct {

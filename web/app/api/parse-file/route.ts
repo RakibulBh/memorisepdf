@@ -3,7 +3,10 @@ import { promises as fs } from "fs";
 import { v4 as uuidv4 } from "uuid";
 import PDFParser from "pdf2json";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = parseInt(
+  process.env.NEXT_PUBLIC_MAX_FILE_SIZE || "104857600",
+  10
+); // 100MB
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();

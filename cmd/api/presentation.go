@@ -139,7 +139,7 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 	// Call LLM
 	result, err := app.llm.Models.GenerateContent(ctx, app.config.geimini.model, genai.Text(generatePresentationPrompt("presentation", presentationText)), &genai.GenerateContentConfig{
 		ResponseMIMEType: "application/json",
-		MaxOutputTokens:  4096,
+		MaxOutputTokens:  int32(app.config.geimini.maxOutputTokens),
 		Temperature:      genai.Ptr[float32](0.5),
 	})
 	if err != nil {

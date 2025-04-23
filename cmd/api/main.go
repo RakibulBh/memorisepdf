@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/RakibulBh/relatewme/internal/env"
@@ -13,7 +12,7 @@ func main() {
 	godotenv.Load()
 
 	if env.GetString("ENV", "development") != "development" {
-		fmt.Print("Production environment")
+		log.Println("Production environment")
 	}
 
 	cfg := config{

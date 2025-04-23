@@ -1,4 +1,6 @@
 app = "memorisepdf"
+kill_signal = "SIGINT"
+kill_timeout = 5
 primary_region = "lhr"
 
 [build]
@@ -7,6 +9,10 @@ primary_region = "lhr"
 [env]
   PORT = "8080"
 
+[experimental]
+  allowed_public_ports = []
+  auto_rollback = true
+
 [http_service]
   internal_port = 8080
   force_https = true
@@ -14,17 +20,20 @@ primary_region = "lhr"
   auto_start_machines = false
   min_machines_running = 1
   processes = ["app"]
+  
+  # Explicitly set maximum machines to 1 to prevent scaling
+  max_machines_running = 1
 
-[http_service.concurrency]
-  type = "requests"
-  hard_limit = 50
-  soft_limit = 25
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 50
+    soft_limit = 25
 
-[[http_service.ports]]
-  port = 80
-  handlers = ["http"]
-  force_https = true
+  [[http_service.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
 
-[[http_service.ports]]
-  port = 443
-  handlers = ["tls", "http"]
+  [[http_service.ports]]
+    port = 443
+    handlers = ["tls", "http"]

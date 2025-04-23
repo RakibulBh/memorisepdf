@@ -22,6 +22,7 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	// Ensure the response can be flushed for streaming
 	flusher, ok := w.(http.Flusher)
 	if !ok {
+		fmt.Println("streaming not supported")
 		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
 		return
 	}
@@ -29,6 +30,7 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	// Get task_id from URL query parameters
 	taskID := r.URL.Query().Get("task_id")
 	if taskID == "" {
+		fmt.Println("task ID is required")
 		fmt.Fprintf(w, "event: error\ndata: Task ID is required\n\n")
 		flusher.Flush()
 		return
@@ -37,6 +39,7 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	// Get channel for task
 	c, exists := taskStore.Get(taskID)
 	if !exists {
+		fmt.Printf("task not found: %s\n", taskID)
 		fmt.Fprintf(w, "event: error\ndata: Task not found\n\n")
 		flusher.Flush()
 		return
@@ -51,16 +54,18 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 		case msg, ok := <-c:
 			if !ok {
 				// Channel closed, task is complete
+				fmt.Printf("task %s: channel closed\n", taskID)
 				fmt.Fprintf(w, "event: finished\ndata: Task completed\n\n")
 				flusher.Flush()
 				return
 			}
 			// Send message with appropriate event type
-			fmt.Println("sending message", msg.Type, msg.Content)
+			fmt.Printf("sending message [%s] for task %s: %s\n", msg.Type, taskID, msg.Content)
 			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", msg.Type, msg.Content)
 			flusher.Flush()
 		case <-r.Context().Done():
 			// Client disconnected
+			fmt.Printf("client disconnected for task %s\n", taskID)
 			return
 		}
 	}
@@ -96,6 +101,7 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 	var request presentationRequest
 	err := app.readJSON(w, r, &request)
 	if err != nil {
+		fmt.Printf("error reading JSON request: %v\n", err)
 		app.badRequestError(w, err.Error())
 		return
 	}
@@ -118,6 +124,8 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 	ch := make(chan TaskMessage, 10) // Buffered channel to avoid blocking
 	taskStore.Set(taskID, ch)
 
+	fmt.Printf("initiating processing task %s\n", taskID)
+
 	// Start processing
 	go app.generateContent(taskID, request.PresentationText, ch)
 
@@ -133,7 +141,7 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 
 	ctx := context.Background()
 
-	// Send progress update
+	fmt.Printf("task %s: starting content generation\n", taskID)
 	c <- TaskMessage{Type: "progress", Content: "Analyzing presentation content..."}
 
 	// Call LLM
@@ -143,33 +151,36 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 		Temperature:      genai.Ptr[float32](0.5),
 	})
 	if err != nil {
-		fmt.Println("Error generating presentation:", err)
+		fmt.Printf("task %s: error generating content: %v\n", taskID, err)
 		c <- TaskMessage{Type: "error", Content: fmt.Sprintf("Error generating presentation: %v", err)}
 		return
 	}
 
-	// Process the result
 	c <- TaskMessage{Type: "progress", Content: "Creating flashcards and quizzes..."}
+	fmt.Printf("task %s: processing LLM response\n", taskID)
 
 	// Parse the JSON response
 	var response PresentationResponse
 	jsonText := result.Text()
+	fmt.Printf("task %s: raw LLM response: %s\n", taskID, jsonText)
 
 	err = json.Unmarshal([]byte(jsonText), &response)
 	if err != nil {
-		fmt.Println("Error parsing response:", err)
+		fmt.Printf("task %s: error parsing JSON response: %v\n", taskID, err)
 		c <- TaskMessage{Type: "error", Content: fmt.Sprintf("Error parsing response: %v", err)}
 		return
 	}
 
 	// Validate response data
 	if len(response.Flashcards) == 0 && len(response.Quizzes) == 0 {
-		fmt.Println("No flashcards or quizzes could be generated from the presentation")
+		fmt.Printf("task %s: no flashcards or quizzes generated\n", taskID)
 		c <- TaskMessage{Type: "error", Content: "No flashcards or quizzes could be generated from the presentation"}
 		return
 	}
 
 	// Return the processed data
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
+	fmt.Printf("task %s: successfully generated %d flashcards and %d quizzes\n",
+		taskID, len(response.Flashcards), len(response.Quizzes))
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
 }

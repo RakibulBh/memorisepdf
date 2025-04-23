@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Upload, Check, X } from "lucide-react";
-import Navbar from "@/components/Navbar";
 import { toast } from "sonner";
 import initiateProcessing from "@/services/requests/parse-presentation";
 import { useResultStore } from "@/store/useResultStore";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -17,19 +17,22 @@ export default function UploadPage() {
   const router = useRouter();
 
   const cleanup = useCallback(() => {
+    if (sse) {
+      sse.removeEventListener("progress", handleProgress);
+      sse.removeEventListener("finished", handleFinished);
+      sse.removeEventListener("error", handleError);
+      sse.close();
+      setSse(null);
+    }
     setUploading(false);
-    sse?.close();
-    setSse(null);
   }, [sse]);
 
-  useEffect(() => {
-    if (!sse) return;
+  const handleProgress = useCallback((event: MessageEvent) => {
+    toast.info(event.data);
+  }, []);
 
-    sse.addEventListener("progress", (event) => {
-      toast.info(event.data);
-    });
-
-    sse.addEventListener("finished", (event) => {
+  const handleFinished = useCallback(
+    (event: MessageEvent) => {
       try {
         // Parse the result data and store it
         const decodedData = atob(event.data); // If using base64
@@ -40,31 +43,43 @@ export default function UploadPage() {
           quizzes: resultData.quizzes || [],
         });
 
+        toast.success("Successfully generated content!");
+
+        // Clean up before navigation
+        cleanup();
+
         // Navigate to results page
         router.push("/results");
       } catch (error) {
         console.error("Failed to parse result data:", error);
         toast.error("Failed to process presentation results");
+        cleanup();
       }
+    },
+    [cleanup, router, setResults]
+  );
 
-      cleanup();
-    });
-
-    sse.addEventListener("error", (event) => {
+  const handleError = useCallback(
+    (event: Event) => {
       console.error("SSE error:", event);
       toast.error("An error occurred during processing");
       cleanup();
-    });
+    },
+    [cleanup]
+  );
 
-    sse.onerror = () => {
-      toast.error("Connection failed or closed unexpectedly");
-      cleanup();
-    };
+  useEffect(() => {
+    if (!sse) return;
+
+    // Add event listeners
+    sse.addEventListener("progress", handleProgress);
+    sse.addEventListener("finished", handleFinished);
+    sse.addEventListener("error", handleError);
 
     return () => {
       cleanup();
     };
-  }, [sse, cleanup, setResults, router]);
+  }, [sse, cleanup, handleProgress, handleFinished, handleError]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -95,33 +110,52 @@ export default function UploadPage() {
     if (!file) return;
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
 
-    // Convert PDF to text
-    const pdfResponse = await fetch("/api/parse-file", {
-      method: "POST",
-      body: formData,
-    });
-    const pdfData = await pdfResponse.json();
+      // Convert PDF to text
+      const pdfResponse = await fetch("/api/parse-file", {
+        method: "POST",
+        body: formData,
+      });
 
-    // Initiate processing
-    const response = await initiateProcessing(pdfData.parsedText);
-    if (response.error) {
-      toast.error(response.error);
+      if (!pdfResponse.ok) {
+        throw new Error(`Failed to parse file: ${pdfResponse.statusText}`);
+      }
+
+      const pdfData = await pdfResponse.json();
+
+      // Initiate processing
+      const response = await initiateProcessing(pdfData.parsedText);
+      if (response.error) {
+        toast.error(response.error);
+        setUploading(false);
+        return;
+      }
+      const taskID = response.data.task_id;
+
+      // Close any existing SSE connection
+      if (sse) {
+        sse.close();
+      }
+
+      // begin the SSE with the taskID recieved
+      const sseURL = new URL(`${process.env.NEXT_PUBLIC_API_URL}/sse`);
+      sseURL.searchParams.append("task_id", taskID);
+
+      // create event source with proper error handling
+      const eventSource = new EventSource(sseURL.toString());
+      setSse(eventSource);
+
+      toast.info("Processing started...");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload file"
+      );
       setUploading(false);
-      return;
     }
-    const taskID = response.data.task_id;
-
-    // begin the SSE with the taskID recieved
-    const sseURL = new URL(`${process.env.NEXT_PUBLIC_API_URL}/sse`);
-    sseURL.searchParams.append("task_id", taskID);
-
-    // create event source
-    const sse = new EventSource(sseURL);
-
-    setSse(sse);
   };
 
   const resetFile = () => {
@@ -129,25 +163,43 @@ export default function UploadPage() {
   };
 
   return (
-    <main className="min-h-screen bg-amber-50">
-      <Navbar />
+    <motion.main
+      className="min-h-screen bg-amber-50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="container mx-auto pt-24 sm:pt-28 md:pt-32 px-4 pb-16 flex items-center justify-center">
         <div className="w-full max-w-xl mx-auto">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-800 text-center mb-1 sm:mb-2">
+          <motion.h1
+            className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-800 text-center mb-1 sm:mb-2"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             Upload Your Presentation
-          </h1>
-          <p className="text-sm md:text-md text-gray-500 text-center mb-8 sm:mb-12">
+          </motion.h1>
+          <motion.p
+            className="text-sm md:text-md text-gray-500 text-center mb-8 sm:mb-12"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
             Transform your slides into interactive quizzes and flashcards
             instantly
-          </p>
+          </motion.p>
 
-          <div
+          <motion.div
             className={`mt-4 sm:mt-6 border-2 border-dashed rounded-lg p-6 sm:p-8 md:p-12 flex flex-col items-center justify-center transition-colors ${
               isDragging ? "border-green-800 bg-green-50" : "border-gray-300"
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
           >
             {!file ? (
               <>
@@ -173,9 +225,13 @@ export default function UploadPage() {
                     multiple={false}
                     onChange={handleFileChange}
                   />
-                  <span className="px-4 sm:px-5 py-2 bg-green-800 text-white rounded-full text-xs sm:text-sm font-semibold cursor-pointer hover:bg-green-700 transition">
+                  <motion.span
+                    className="px-4 sm:px-5 py-2 bg-green-800 text-white rounded-full text-xs sm:text-sm font-semibold cursor-pointer hover:bg-green-700 transition"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
                     Browse Files
-                  </span>
+                  </motion.span>
                 </label>
               </>
             ) : (
@@ -194,15 +250,17 @@ export default function UploadPage() {
                       </p>
                     </div>
                   </div>
-                  <button
+                  <motion.button
                     onClick={resetFile}
                     className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
                   >
                     <X className="w-4 sm:w-5 h-4 sm:h-5 text-gray-500" />
-                  </button>
+                  </motion.button>
                 </div>
 
-                <button
+                <motion.button
                   onClick={handleUpload}
                   disabled={uploading}
                   className={`w-full py-2.5 sm:py-3 rounded-full text-white font-semibold ${
@@ -210,14 +268,16 @@ export default function UploadPage() {
                       ? "bg-green-700"
                       : "bg-green-800 hover:bg-green-700"
                   } transition flex items-center justify-center gap-2`}
+                  whileHover={!uploading ? { scale: 1.02 } : {}}
+                  whileTap={!uploading ? { scale: 0.98 } : {}}
                 >
-                  {uploading ? "Uploading..." : "Convert Presentation"}
-                </button>
+                  {uploading ? "Processing..." : "Convert Presentation"}
+                </motion.button>
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
-    </main>
+    </motion.main>
   );
 }

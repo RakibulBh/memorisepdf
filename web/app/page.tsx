@@ -1,11 +1,18 @@
+"use client";
+
 import Hero from "@/components/Hero";
-import Navbar from "@/components/Navbar";
+import { motion } from "framer-motion";
 
 export default function Home() {
   return (
-    <main className="relative">
-      <Navbar />
+    <motion.main
+      className="relative"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <Hero />
-    </main>
+    </motion.main>
   );
 }

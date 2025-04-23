@@ -3,6 +3,7 @@ import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import Navbar from "@/components/Navbar";
+import { AnimatePresence } from "framer-motion";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -15,7 +16,7 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "Unmemorizable - Convert Slides to Quizzes & Flashcards",
+  title: "MemorisePDF - Convert Slides to Quizzes & Flashcards",
   description:
     "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
   keywords: [
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
     "slide conversion",
   ],
   openGraph: {
-    title: "Unmemorizable - Convert Slides to Quizzes & Flashcards",
+    title: "MemorisePDF - Convert Slides to Quizzes & Flashcards",
     description:
       "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
     type: "website",
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Unmemorizable - Convert Slides to Quizzes & Flashcards",
+    title: "MemorisePDF - Convert Slides to Quizzes & Flashcards",
     description:
       "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
   },
@@ -52,7 +53,7 @@ export default function RootLayout({
       >
         <Toaster />
         <Navbar />
-        {children}
+        <AnimatePresence mode="wait">{children}</AnimatePresence>
       </body>
     </html>
   );

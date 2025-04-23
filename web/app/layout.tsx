@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import Navbar from "@/components/Navbar";
 import AnimationProvider from "@/components/AnimationProvider";
+import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -51,6 +52,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${lora.variable} antialiased text-gray-900`}
       >
+        <Analytics />
         <Toaster />
         <Navbar />
         <AnimationProvider>{children}</AnimationProvider>

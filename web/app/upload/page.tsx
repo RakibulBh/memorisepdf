@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Upload, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import initiateProcessing from "@/services/requests/parse-presentation";
@@ -16,70 +16,69 @@ export default function UploadPage() {
   const setResults = useResultStore((state) => state.setResults);
   const router = useRouter();
 
+  // Use refs to avoid circular dependencies
+  const handleProgressRef = useRef<(event: MessageEvent) => void>(() => {});
+  const handleFinishedRef = useRef<(event: MessageEvent) => void>(() => {});
+  const handleErrorRef = useRef<(event: Event) => void>(() => {});
+
   const cleanup = useCallback(() => {
     if (sse) {
-      sse.removeEventListener("progress", handleProgress);
-      sse.removeEventListener("finished", handleFinished);
-      sse.removeEventListener("error", handleError);
+      sse.removeEventListener("progress", handleProgressRef.current);
+      sse.removeEventListener("finished", handleFinishedRef.current);
+      sse.removeEventListener("error", handleErrorRef.current);
       sse.close();
       setSse(null);
     }
     setUploading(false);
   }, [sse]);
 
-  const handleProgress = useCallback((event: MessageEvent) => {
+  // Set up the event handlers with refs to avoid circular deps
+  handleProgressRef.current = (event: MessageEvent) => {
     toast.info(event.data);
-  }, []);
+  };
 
-  const handleFinished = useCallback(
-    (event: MessageEvent) => {
-      try {
-        // Parse the result data and store it
-        const decodedData = atob(event.data); // If using base64
-        const resultData = JSON.parse(decodedData);
+  handleFinishedRef.current = (event: MessageEvent) => {
+    try {
+      const decodedData = atob(event.data);
+      const resultData = JSON.parse(decodedData);
 
-        setResults({
-          flashcards: resultData.flashcards || [],
-          quizzes: resultData.quizzes || [],
-        });
+      setResults({
+        flashcards: resultData.flashcards || [],
+        quizzes: resultData.quizzes || [],
+      });
 
-        toast.success("Successfully generated content!");
+      toast.success("Successfully generated content!");
 
-        // Clean up before navigation
-        cleanup();
-
-        // Navigate to results page
-        router.push("/results");
-      } catch (error) {
-        console.error("Failed to parse result data:", error);
-        toast.error("Failed to process presentation results");
-        cleanup();
-      }
-    },
-    [cleanup, router, setResults]
-  );
-
-  const handleError = useCallback(
-    (event: Event) => {
-      console.error("SSE error:", event);
-      toast.error("An error occurred during processing");
+      // Clean up before navigation
       cleanup();
-    },
-    [cleanup]
-  );
+
+      // Navigate to results page
+      router.push("/results");
+    } catch (error) {
+      console.error("Failed to parse result data:", error);
+      toast.error("Failed to process presentation results");
+      cleanup();
+    }
+  };
+
+  handleErrorRef.current = (event: Event) => {
+    console.error("SSE error:", event);
+    toast.error("An error occurred during processing");
+    cleanup();
+  };
 
   useEffect(() => {
     if (!sse) return;
 
-    // Add event listeners
-    sse.addEventListener("progress", handleProgress);
-    sse.addEventListener("finished", handleFinished);
-    sse.addEventListener("error", handleError);
+    // Add event listeners using the current refs
+    sse.addEventListener("progress", handleProgressRef.current);
+    sse.addEventListener("finished", handleFinishedRef.current);
+    sse.addEventListener("error", handleErrorRef.current);
 
     return () => {
       cleanup();
     };
-  }, [sse, cleanup, handleProgress, handleFinished, handleError]);
+  }, [sse, cleanup]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -137,10 +136,10 @@ export default function UploadPage() {
 
       // Close any existing SSE connection
       if (sse) {
-        sse.close();
+        cleanup();
       }
 
-      // begin the SSE with the taskID recieved
+      // begin the SSE with the taskID received
       const sseURL = new URL(`${process.env.NEXT_PUBLIC_API_URL}/sse`);
       sseURL.searchParams.append("task_id", taskID);
 

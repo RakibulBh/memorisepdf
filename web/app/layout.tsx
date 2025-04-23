@@ -3,7 +3,7 @@ import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import Navbar from "@/components/Navbar";
-import { AnimatePresence } from "framer-motion";
+import AnimationProvider from "@/components/AnimationProvider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -53,7 +53,7 @@ export default function RootLayout({
       >
         <Toaster />
         <Navbar />
-        <AnimatePresence mode="wait">{children}</AnimatePresence>
+        <AnimationProvider>{children}</AnimationProvider>
       </body>
     </html>
   );

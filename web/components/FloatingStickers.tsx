@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 
@@ -13,7 +13,7 @@ interface Sticker {
 }
 
 const FloatingStickers = () => {
-  const [stickers, setStickers] = useState<Sticker[]>([
+  const [stickers] = useState<Sticker[]>([
     {
       src: "/stickers/check.png",
       initialPosition: { x: 5, y: 20 },

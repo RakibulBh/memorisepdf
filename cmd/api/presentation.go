@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,8 +61,10 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 type presentationRequest struct {
+	ServiceType      string `json:"service_type"`
 	PresentationText string `json:"presentation_text"`
-	Difficulty       string `json:"difficulty"`
+	TeachingStyle    string `json:"teaching_style,omitempty"`
+	Difficulty       string `json:"difficulty,omitempty"`
 }
 
 type PresentationResponse struct {
@@ -84,6 +87,9 @@ type Answer struct {
 	Correct     bool   `json:"correct"`
 	Explanation string `json:"explanation"`
 }
+
+var difficultyLevels = []string{"easy", "medium", "hard"}
+var teachingStyles = []string{"simple-language", "analogy-driven", "scaffolded-learning"}
 
 func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Request) {
 	requestID := generateRequestID()
@@ -108,18 +114,52 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// validate service type
+	if request.ServiceType != "testme" && request.ServiceType != "teachme" {
+		log.Printf("[%s] ERROR: invalid service type", requestID)
+		app.badRequestError(w, "invalid service type")
+		return
+	}
+
+	// validate difficulty
+	if !slices.Contains(difficultyLevels, request.Difficulty) && request.ServiceType == "testme" {
+		log.Printf("[%s] ERROR: invalid difficulty", requestID)
+		app.badRequestError(w, "invalid difficulty")
+		return
+	}
+
+	// validate teaching style
+	if !slices.Contains(teachingStyles, request.TeachingStyle) && request.ServiceType == "teachme" {
+		log.Printf("[%s] ERROR: invalid teaching style", requestID)
+		app.badRequestError(w, "invalid teaching style")
+		return
+	}
+
 	taskID := uuid.New().String()
 	ch := make(chan TaskMessage, 10)
 	taskStore.Set(taskID, ch)
 
-	go app.generateContent(taskID, request.PresentationText, request.Difficulty, ch)
+	if request.ServiceType == "testme" {
+		go app.generateQuizzes(taskID, request.PresentationText, request.Difficulty, ch)
+	} else {
+		go app.generateTeachingCards(taskID, request.PresentationText, request.TeachingStyle, ch)
+	}
 
 	app.writeJSON(w, http.StatusOK, "task initiated", map[string]string{
 		"task_id": taskID,
 	})
 }
 
-func (app *application) generateContent(taskID, presentationText, difficulty string, c chan TaskMessage) {
+type TeachingCard struct {
+	Subtopic string `json:"subtopic"`
+	Teaching string `json:"teaching"`
+}
+
+type TeachingCardsResponse struct {
+	TeachingCards []TeachingCard `json:"teaching_cards"`
+}
+
+func (app *application) generateTeachingCards(taskID, presentationText, teachingStyle string, c chan TaskMessage) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Task %s: PANIC: %v", taskID, r)
@@ -142,7 +182,74 @@ func (app *application) generateContent(taskID, presentationText, difficulty str
 		result, err = app.llm.Models.GenerateContent(
 			ctx,
 			app.config.geimini.model,
-			genai.Text(generatePresentationPrompt("testme", presentationText, difficulty)),
+			genai.Text(generatePresentationPrompt("teachme", presentationText, nil, &teachingStyle)),
+			&genai.GenerateContentConfig{
+				ResponseMIMEType: "application/json",
+				MaxOutputTokens:  int32(app.config.geimini.maxOutputTokens),
+				Temperature:      genai.Ptr[float32](0.5),
+			},
+		)
+
+		if err == nil {
+			break
+		}
+
+		if attempt == maxRetries {
+			log.Printf("Task %s: LLM failed after %d attempts: %v", taskID, maxRetries+1, err)
+			c <- TaskMessage{Type: "error", Content: "Content generation failed"}
+			return
+		}
+		time.Sleep(time.Duration(attempt+1) * time.Second)
+	}
+
+	c <- TaskMessage{Type: "progress", Content: "Creating teaching cards..."}
+
+	jsonText := result.Text()
+
+	// For debugging
+	log.Printf("Task %s: Generated JSON response: %s", taskID, jsonText[:min(200, len(jsonText))])
+
+	var response TeachingCardsResponse
+	if err := json.Unmarshal([]byte(jsonText), &response); err != nil {
+		log.Printf("Task %s: JSON parse error: %v\nData: %s", taskID, err, jsonText[:min(200, len(jsonText))])
+		c <- TaskMessage{Type: "error", Content: "Invalid response format"}
+		return
+	}
+
+	if len(response.TeachingCards) == 0 {
+		log.Printf("Task %s: empty generation result", taskID)
+		c <- TaskMessage{Type: "error", Content: "No content generated"}
+		return
+	}
+
+	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
+	c <- TaskMessage{Type: "finished", Content: encodedJSON}
+}
+
+func (app *application) generateQuizzes(taskID, presentationText, difficulty string, c chan TaskMessage) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Task %s: PANIC: %v", taskID, r)
+			c <- TaskMessage{Type: "error", Content: "Internal server error"}
+		}
+		close(c)
+		taskStore.Delete(taskID)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	c <- TaskMessage{Type: "progress", Content: "Analyzing presentation content..."}
+
+	var result *genai.GenerateContentResponse
+	var err error
+	maxRetries := 2
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		result, err = app.llm.Models.GenerateContent(
+			ctx,
+			app.config.geimini.model,
+			genai.Text(generatePresentationPrompt("testme", presentationText, &difficulty, nil)),
 			&genai.GenerateContentConfig{
 				ResponseMIMEType: "application/json",
 				MaxOutputTokens:  int32(app.config.geimini.maxOutputTokens),

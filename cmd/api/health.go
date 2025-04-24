@@ -12,7 +12,6 @@ import (
 func (app *application) healthCheck(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	requestID := generateRequestID()
-	log.Printf("[%s] Health check requested from %s", requestID, getClientIP(r))
 
 	// Basic response data
 	data := map[string]interface{}{

@@ -8,7 +8,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (pathname: string) => {
+      onBeforeGenerateToken: async () => {
         // Generate a client token for the browser to upload the file
         return {
           allowOverwrite: true, // Always allow overwriting existing blobs

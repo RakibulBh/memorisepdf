@@ -24,6 +24,23 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Fprintf(w, ": keepalive comment\n\n")
+				if f, ok := w.(http.Flusher); ok {
+					f.Flush()
+				}
+			case <-r.Context().Done():
+				return
+			}
+		}
+	}()
+
 	// Check if HTTP/3 is being used
 	if r.ProtoMajor == 3 {
 		// HTTP/3: Only set X-Accel-Buffering

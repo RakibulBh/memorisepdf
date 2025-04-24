@@ -1,7 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Upload, Check, X, Loader2 } from "lucide-react";
+import {
+  Upload,
+  Check,
+  X,
+  Loader2,
+  Brain,
+  Lightbulb,
+  School,
+  Blocks,
+  BarChart2,
+  BookOpen,
+} from "lucide-react";
 import { toast } from "sonner";
 import initiateProcessing from "@/services/requests/parse-presentation";
 import { useResultStore } from "@/store/useResultStore";
@@ -15,10 +26,17 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [sse, setSse] = useState<EventSource | null>(null);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">(
-    "medium"
+    "easy"
   );
+  const [serviceType, setServiceType] = useState<"testme" | "teachme">(
+    "testme"
+  );
+  const [teachingStyle, setTeachingStyle] = useState<
+    "simple-language" | "analogy-driven" | "scaffolded-learning"
+  >("simple-language");
   const [progressMessages, setProgressMessages] = useState<string[]>([]);
   const setResults = useResultStore((state) => state.setResults);
+  const setTeachingCards = useResultStore((state) => state.setTeachingCards);
   const router = useRouter();
 
   // Use refs to avoid circular dependencies
@@ -49,18 +67,24 @@ export default function UploadPage() {
       const decodedData = atob(event.data);
       const resultData = JSON.parse(decodedData);
 
-      setResults({
-        flashcards: resultData.flashcards || [],
-        quizzes: resultData.quizzes || [],
-      });
-
-      toast.success("Successfully generated content!");
-
-      // Clean up before navigation
-      cleanup();
-
-      // Navigate to results page
-      router.push("/results");
+      if (serviceType === "testme") {
+        setResults({
+          flashcards: resultData.flashcards || [],
+          quizzes: resultData.quizzes || [],
+        });
+        toast.success("Successfully generated flashcards and quizzes!");
+        // Clean up before navigation
+        cleanup();
+        // Navigate to results page
+        router.push("/results");
+      } else {
+        setTeachingCards(resultData.teaching_cards || []);
+        toast.success("Successfully generated teaching content!");
+        // Clean up before navigation
+        cleanup();
+        // Navigate to teaching page
+        router.push("/teach");
+      }
     } catch (error) {
       console.error("Failed to parse result data:", error);
       toast.error("Failed to process presentation results");
@@ -249,17 +273,22 @@ export default function UploadPage() {
           return;
         }
 
-        // Step 3: Initiate processing with the parsed text and difficulty level
-        toast.info(`Generating ${difficulty} flashcards and quizzes...`);
-        setProgressMessages((prev) => [
-          ...prev,
-          `Generating ${difficulty} flashcards and quizzes...`,
-        ]);
+        // Step 3: Initiate processing with the parsed text, difficulty level, and service type
+        const actionType =
+          serviceType === "testme"
+            ? `Generating ${difficulty} flashcards and quizzes...`
+            : `Creating teaching content with ${teachingStyle} style...`;
 
-        const response = await initiateProcessing(
-          fileData.parsedText,
-          difficulty
-        );
+        toast.info(actionType);
+        setProgressMessages((prev) => [...prev, actionType]);
+
+        // Include the service type and either difficulty or teaching style depending on service type
+        const params =
+          serviceType === "testme"
+            ? { text: fileData.parsedText, difficulty, serviceType }
+            : { text: fileData.parsedText, teachingStyle, serviceType };
+
+        const response = await initiateProcessing(params);
         if (response.error) {
           toast.error(response.error);
           setUploading(false);
@@ -323,6 +352,81 @@ export default function UploadPage() {
     setFile(null);
   };
 
+  const ServiceTypeSelector = () => {
+    return (
+      <div className="w-full mb-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">
+          What would you like to do?
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <motion.button
+            onClick={() => setServiceType("testme")}
+            className={`py-3 px-4 rounded-lg border text-sm transition-all flex items-center ${
+              serviceType === "testme"
+                ? "border-green-800 bg-green-50 text-green-800"
+                : "border-gray-300 hover:border-green-300 hover:bg-green-50/50"
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                serviceType === "testme" ? "bg-green-100" : "bg-gray-100"
+              }`}
+            >
+              <Brain
+                className={`w-4 h-4 ${
+                  serviceType === "testme" ? "text-green-800" : "text-gray-500"
+                }`}
+              />
+            </div>
+            <div className="flex-1 text-left">
+              <span className="font-medium block">Test Me</span>
+              <span className="text-xs text-gray-500 mt-1 block">
+                Generate flashcards and quizzes
+              </span>
+            </div>
+            {serviceType === "testme" && (
+              <div className="w-3 h-3 rounded-full bg-green-800 ml-2"></div>
+            )}
+          </motion.button>
+
+          <motion.button
+            onClick={() => setServiceType("teachme")}
+            className={`py-3 px-4 rounded-lg border text-sm transition-all flex items-center ${
+              serviceType === "teachme"
+                ? "border-green-800 bg-green-50 text-green-800"
+                : "border-gray-300 hover:border-green-300 hover:bg-green-50/50"
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                serviceType === "teachme" ? "bg-green-100" : "bg-gray-100"
+              }`}
+            >
+              <Lightbulb
+                className={`w-4 h-4 ${
+                  serviceType === "teachme" ? "text-green-800" : "text-gray-500"
+                }`}
+              />
+            </div>
+            <div className="flex-1 text-left">
+              <span className="font-medium block">Teach Me</span>
+              <span className="text-xs text-gray-500 mt-1 block">
+                Create step-by-step explanations
+              </span>
+            </div>
+            {serviceType === "teachme" && (
+              <div className="w-3 h-3 rounded-full bg-green-800 ml-2"></div>
+            )}
+          </motion.button>
+        </div>
+      </div>
+    );
+  };
+
   const DifficultySelector = () => {
     const difficultyInfo = {
       easy: "Tests basic recall and explicit information",
@@ -364,6 +468,75 @@ export default function UploadPage() {
     );
   };
 
+  const TeachingStyleSelector = () => {
+    const teachingStyleInfo = {
+      "simple-language":
+        "Explain Like I'm 5 - Simple terms anyone can understand",
+      "analogy-driven":
+        "Analogy Driven - Using familiar examples to explain concepts",
+      "scaffolded-learning":
+        "Scaffolded Learning - Step-by-step progressive learning",
+    };
+
+    const teachingStyleIcons = {
+      "simple-language": <School className="w-4 h-4" />,
+      "analogy-driven": <Blocks className="w-4 h-4" />,
+      "scaffolded-learning": <BarChart2 className="w-4 h-4" />,
+    };
+
+    return (
+      <div className="w-full mb-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">
+          Select teaching style:
+        </h3>
+        <div className="grid grid-cols-1 gap-2">
+          {(
+            [
+              "simple-language",
+              "analogy-driven",
+              "scaffolded-learning",
+            ] as const
+          ).map((style) => (
+            <motion.button
+              key={style}
+              onClick={() => setTeachingStyle(style)}
+              className={`py-2 px-3 rounded-lg border text-sm transition-all ${
+                teachingStyle === style
+                  ? "border-green-800 bg-green-50 text-green-800"
+                  : "border-gray-300 hover:border-green-300 hover:bg-green-50/50"
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="flex items-center">
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center mr-2 ${
+                    teachingStyle === style ? "bg-green-100" : "bg-gray-100"
+                  }`}
+                >
+                  {teachingStyleIcons[style]}
+                </div>
+                <span className="font-medium">
+                  {style === "simple-language"
+                    ? "Explain Like I'm 5"
+                    : style === "analogy-driven"
+                    ? "Analogy Driven"
+                    : "Scaffolded Learning"}
+                </span>
+                {teachingStyle === style && (
+                  <div className="w-3 h-3 rounded-full bg-green-800 ml-2"></div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1 pl-8 text-left">
+                {teachingStyleInfo[style]}
+              </p>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <motion.main
       className="min-h-screen bg-amber-50"
@@ -388,8 +561,7 @@ export default function UploadPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            Transform your slides into interactive quizzes and flashcards
-            instantly
+            Transform your slides into interactive learning materials instantly
           </motion.p>
 
           <motion.div
@@ -464,7 +636,16 @@ export default function UploadPage() {
                   </motion.button>
                 </div>
 
-                {!uploading && <DifficultySelector />}
+                {!uploading && (
+                  <>
+                    <ServiceTypeSelector />
+                    {serviceType === "testme" ? (
+                      <DifficultySelector />
+                    ) : (
+                      <TeachingStyleSelector />
+                    )}
+                  </>
+                )}
 
                 {uploading ? (
                   <div className="w-full">
@@ -500,7 +681,10 @@ export default function UploadPage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    Convert Presentation
+                    <BookOpen className="w-4 h-4 mr-1" />
+                    {serviceType === "testme"
+                      ? "Generate Learning Materials"
+                      : "Create Teaching Content"}
                   </motion.button>
                 )}
               </div>

@@ -44,6 +44,7 @@ export default function ResultsPage() {
   const flashcards = useResultStore((state) => state.flashcards);
   const quizzes = useResultStore((state) => state.quizzes);
   const hasResults = useResultStore((state) => state.hasResults);
+  const contentType = useResultStore((state) => state.contentType);
 
   // State for interactive elements
   const [currentFlashcard, setCurrentFlashcard] = useState(0);
@@ -55,11 +56,11 @@ export default function ResultsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If there are no results, redirect to upload page
-    if (!hasResults()) {
+    // If there are no results or content type isn't "test", redirect to upload page
+    if (!hasResults() || contentType !== "test") {
       router.push("/upload");
     }
-  }, [hasResults, router]);
+  }, [hasResults, contentType, router]);
 
   // Flashcard navigation
   const nextFlashcard = () => {
@@ -100,7 +101,7 @@ export default function ResultsPage() {
   };
 
   // If no results, show loading until redirect happens
-  if (!hasResults()) {
+  if (!hasResults() || contentType !== "test") {
     return (
       <motion.div
         className="min-h-screen bg-amber-50 flex items-center justify-center"

@@ -113,20 +113,55 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      // Convert PDF to text
-      const pdfResponse = await fetch("/api/parse-file", {
-        method: "POST",
-        body: formData,
-      });
+      let fileData: { parsedText: string };
+      const fileType = file.type;
+      const fileName = file.name.toLowerCase();
 
-      if (!pdfResponse.ok) {
-        throw new Error(`Failed to parse file: ${pdfResponse.statusText}`);
+      // Check if PDF
+      if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
+        // Convert PDF to text
+        const pdfResponse = await fetch("/api/parse-pdf", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!pdfResponse.ok) {
+          throw new Error(`Failed to parse PDF: ${pdfResponse.statusText}`);
+        }
+
+        fileData = await pdfResponse.json();
+      }
+      // Check if Office document
+      else if (
+        fileType.includes("office") ||
+        fileName.endsWith(".docx") ||
+        fileName.endsWith(".pptx") ||
+        fileName.endsWith(".xlsx") ||
+        fileName.endsWith(".odt") ||
+        fileName.endsWith(".odp") ||
+        fileName.endsWith(".ods")
+      ) {
+        // Convert Office to text
+        const officeResponse = await fetch("/api/parse-office", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!officeResponse.ok) {
+          throw new Error(
+            `Failed to parse office document: ${officeResponse.statusText}`
+          );
+        }
+
+        fileData = await officeResponse.json();
+      } else {
+        throw new Error(
+          "Unsupported file format. Please upload a PDF or Office document."
+        );
       }
 
-      const pdfData = await pdfResponse.json();
-
       // Initiate processing
-      const response = await initiateProcessing(pdfData.parsedText);
+      const response = await initiateProcessing(fileData.parsedText);
       if (response.error) {
         toast.error(response.error);
         setUploading(false);
@@ -209,7 +244,8 @@ export default function UploadPage() {
                   Drag & drop your presentation
                 </h3>
                 <p className="text-sm text-gray-500 mb-3 sm:mb-4 text-center">
-                  Support for PowerPoint, PDF, Keynote
+                  Support for PowerPoint, PDF, Keynote, Word, Excel and
+                  OpenDocument formats
                 </p>
                 <div className="flex gap-2 items-center">
                   <div className="h-px w-16 sm:w-20 bg-gray-300"></div>
@@ -220,7 +256,7 @@ export default function UploadPage() {
                   <input
                     type="file"
                     className="hidden"
-                    accept=".pdf"
+                    accept=".pdf,.pptx,.docx,.xlsx,.odt,.odp,.ods"
                     multiple={false}
                     onChange={handleFileChange}
                   />

@@ -10,7 +10,7 @@ const AttributionBadge = () => {
       transition={{ duration: 0.5 }}
       className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-amber-500 rounded-full text-white shadow-md"
     >
-      <span className="text-sm font-medium">Made with ❤️ by</span>
+      <span className="text-sm font-medium">Made by</span>
       <a
         href="https://www.linkedin.com/in/rakibulb"
         target="_blank"

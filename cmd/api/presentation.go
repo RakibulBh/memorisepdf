@@ -16,7 +16,6 @@ import (
 
 func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	requestID := generateRequestID()
-	log.Printf("[%s] SSE connection started from %s", requestID, getClientIP(r))
 
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -24,49 +23,16 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	go func() {
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				fmt.Fprintf(w, ": keepalive comment\n\n")
-				if f, ok := w.(http.Flusher); ok {
-					f.Flush()
-				}
-			case <-r.Context().Done():
-				return
-			}
-		}
-	}()
-
-	// Check if HTTP/3 is being used
-	if r.ProtoMajor == 3 {
-		// HTTP/3: Only set X-Accel-Buffering
-		w.Header().Set("X-Accel-Buffering", "no")
-	} else {
-		// HTTP/1.1 or HTTP/2: Set both headers
-		w.Header().Set("X-Accel-Buffering", "no")
-		w.Header().Set("Transfer-Encoding", "chunked")
-	}
-
 	log.Printf("[%s] SSE headers set", requestID)
 
-	// Ensure the response can be flushed for streaming
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		log.Printf("[%s] ERROR: streaming not supported by client", requestID)
-		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
-		return
-	}
+	rc := http.NewResponseController(w)
 
 	// Get task_id from URL query parameters
 	taskID := r.URL.Query().Get("task_id")
 	if taskID == "" {
 		log.Printf("[%s] ERROR: task ID is required but not provided", requestID)
 		fmt.Fprintf(w, "event: error\ndata: Task ID is required\n\n")
-		flusher.Flush()
+		rc.Flush()
 		return
 	}
 	log.Printf("[%s] Processing task ID: %s", requestID, taskID)
@@ -76,7 +42,7 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		log.Printf("[%s] ERROR: task not found: %s", requestID, taskID)
 		fmt.Fprintf(w, "event: error\ndata: Task not found\n\n")
-		flusher.Flush()
+		rc.Flush()
 		return
 	}
 	log.Printf("[%s] Task channel retrieved successfully", requestID)
@@ -88,24 +54,20 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Listen for messages or client disconnection
-	messageCount := 0
 	for {
 		select {
 		case msg, ok := <-c:
 			if !ok {
-				// Channel closed, task is complete
-				log.Printf("[%s] Task %s: channel closed after %d messages", requestID, taskID, messageCount)
+				// Channel closed properly
 				fmt.Fprintf(w, "event: finished\ndata: Task completed\n\n")
-				flusher.Flush()
-				return
+				rc.Flush()
 			}
-			messageCount++
-			log.Printf("[%s] Sending message #%d of type '%s' to client", requestID, messageCount, msg.Type)
+			// Send message with explicit flush
 			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", msg.Type, msg.Content)
-			flusher.Flush()
+			rc.Flush()
 		case <-r.Context().Done():
 			// Client disconnected
-			log.Printf("[%s] Client disconnected for task %s after %d messages", requestID, taskID, messageCount)
+			log.Printf("Client disconnected")
 			return
 		}
 	}
@@ -295,13 +257,4 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 // Helper function to generate a request ID for tracking
 func generateRequestID() string {
 	return fmt.Sprintf("%x", time.Now().UnixNano())
-}
-
-// Helper function to get client IP
-func getClientIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = r.RemoteAddr
-	}
-	return ip
 }

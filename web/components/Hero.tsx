@@ -2,10 +2,11 @@
 
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import FloatingStickers from "./FloatingStickers";
+import AttributionBadge from "./AttributionBadge";
 
 const SquigglyUnderline = () => (
   <svg
@@ -37,18 +38,31 @@ const boxes = [
   {
     value: "98%",
     text: "Faster study time",
+    startValue: 0,
+    endValue: 98,
+    suffix: "%",
   },
   {
     value: "5x",
     text: "Higher engagement",
+    startValue: 0,
+    endValue: 5,
+    suffix: "x",
   },
   {
     value: "89%",
     text: "Better retention",
+    startValue: 0,
+    endValue: 89,
+    suffix: "%",
   },
   {
     value: "<1min",
     text: "Instant quiz generation",
+    startValue: 60,
+    endValue: 1,
+    prefix: "<",
+    suffix: "min",
   },
 ];
 
@@ -80,6 +94,14 @@ const Hero = () => {
         animate="visible"
         variants={staggerChildrenVariants}
       >
+        {/* Attribution Badge */}
+        <motion.div
+          variants={fadeInUpVariants}
+          transition={{ duration: 0.6, delay: 0.1 }}
+        >
+          <AttributionBadge />
+        </motion.div>
+
         <motion.h1
           className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-green-800"
           variants={fadeInUpVariants}
@@ -139,6 +161,10 @@ const Hero = () => {
             key={box.text}
             name={box.text}
             value={box.value}
+            startValue={box.startValue}
+            endValue={box.endValue}
+            prefix={box.prefix}
+            suffix={box.suffix}
             idx={idx}
             totalBoxes={boxes.length}
           />
@@ -151,32 +177,75 @@ const Hero = () => {
 const StatBox = ({
   name,
   value,
+  startValue,
+  endValue,
+  prefix = "",
+  suffix = "",
   idx,
   totalBoxes,
 }: {
   name: string;
   value: string;
+  startValue: number;
+  endValue: number;
+  prefix?: string;
+  suffix?: string;
   idx: number;
   totalBoxes: number;
-}) => (
-  <motion.div
-    className={cn(
-      "flex-1 flex flex-col items-start justify-center border-y border-black/5 px-2 gap-2 sm:gap-4 py-3 sm:py-4",
-      idx % 2 !== 1 && "border-r md:border-r",
-      idx < totalBoxes - 2 && "md:border-r"
-    )}
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5, delay: 0.7 + idx * 0.1 }}
-  >
-    <motion.h1
-      className="text-2xl sm:text-3xl md:text-4xl text-green-800 font-bold"
-      whileHover={{ scale: 1.1, color: "#166534" }}
+}) => {
+  const [count, setCount] = useState(startValue);
+
+  useEffect(() => {
+    const duration = 2000; // 2 seconds
+    const steps = 30;
+    const stepTime = duration / steps;
+
+    // Calculate the increment per step
+    const increment = (endValue - startValue) / steps;
+
+    let currentStep = 0;
+    const timer = setInterval(() => {
+      currentStep += 1;
+      const newValue = startValue + increment * Math.min(currentStep, steps);
+
+      // If we're decrementing (endValue < startValue), we want to round down
+      // If we're incrementing (endValue > startValue), we want to round up
+      const roundedValue =
+        endValue < startValue ? Math.ceil(newValue) : Math.floor(newValue);
+
+      setCount(roundedValue);
+
+      if (currentStep >= steps) {
+        clearInterval(timer);
+        setCount(endValue);
+      }
+    }, stepTime);
+
+    return () => clearInterval(timer);
+  }, [startValue, endValue]);
+
+  return (
+    <motion.div
+      className={cn(
+        "flex-1 flex flex-col items-start justify-center border-y border-black/5 px-2 gap-2 sm:gap-4 py-3 sm:py-4",
+        idx % 2 !== 1 && "border-r md:border-r",
+        idx < totalBoxes - 2 && "md:border-r"
+      )}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.7 + idx * 0.1 }}
     >
-      {value}
-    </motion.h1>
-    <p className="text-xs sm:text-sm font-semibold text-gray-400">{name}</p>
-  </motion.div>
-);
+      <motion.h1
+        className="text-2xl sm:text-3xl md:text-4xl text-green-800 font-bold"
+        whileHover={{ scale: 1.1, color: "#166534" }}
+      >
+        {prefix}
+        {count}
+        {suffix}
+      </motion.h1>
+      <p className="text-xs sm:text-sm font-semibold text-gray-400">{name}</p>
+    </motion.div>
+  );
+};
 
 export default Hero;

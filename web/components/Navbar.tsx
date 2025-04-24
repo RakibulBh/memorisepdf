@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Upload } from "lucide-react";
+import { BookOpen, Upload, BookOpenCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -49,13 +49,16 @@ const Navbar = () => {
     >
       <div className="max-w-6xl w-full flex justify-between items-center">
         <Link href="/" className="flex items-center">
-          <motion.span
-            className="font-bold text-xl text-green-800"
+          <motion.div
+            className="flex items-center"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            MemorisePDF
-          </motion.span>
+            <BookOpenCheck className="w-6 h-6 mr-2 text-green-800" />
+            <span className="font-bold text-xl text-green-800">
+              MemorisePDF
+            </span>
+          </motion.div>
         </Link>
 
         <motion.div

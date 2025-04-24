@@ -29,6 +29,11 @@ const (
 		"definition": "the process by which green plants use sunlight to synthesize foods from carbon dioxide and water"
 		}
 	
+	- For mathematical formulas, use LaTeX notation enclosed in dollar signs. For example:
+		{
+		"term": "Bernoulli's Equation",
+		"definition": "The equation $P_1 + \\frac{1}{2}\\rho v_1^2 + \\rho g z_1 = P_2 + \\frac{1}{2}\\rho v_2^2 + \\rho g z_2 = constant$ expresses conservation of energy in fluid flow."
+		}
 
 	4. **Generate Quiz Questions:**
 
@@ -36,34 +41,36 @@ const (
 		- A "question" field with the question text.
 		- An "answers" field containing an array of four answer objects.
 	- Each answer object should have:
+		- PLEASE do not put the correct answer first, scramble the answers.
 		- "text": the answer choice.
 		- "correct": a boolean indicating if it's the correct answer (true for one answer, false for the others).
 		- "explanation": This should be a logical explanation of why the answer is correct or incorrect, the explanation should be based on the text but explain it in such way that it builds up from fundamentals to avoid confusion on user or further questions.
 	- Ensure there is exactly one correct answer per question.
+	- For any mathematical expressions, chemical equations, or special notation, use LaTeX notation enclosed in dollar signs.
 	- Example:
 
 		{
-		"question": "What is the primary energy source for photosynthesis?",
+		"question": "According to Bernoulli's principle, what happens to fluid pressure when velocity increases?",
 		"answers": [
 			{
-			"text": "Sunlight",
+			"text": "Pressure decreases as described by $P + \\frac{1}{2}\\rho v^2 = constant$",
 			"correct": true,
-			"explanation": "The text states that photosynthesis uses sunlight to synthesize foods from carbon dioxide and water."
+			"explanation": "According to Bernoulli's equation, when velocity increases, pressure must decrease to maintain the constant energy value."
 			},
 			{
-			"text": "Water",
+			"text": "Pressure increases proportionally to velocity",
 			"correct": false,
-			"explanation": "Water is a reactant used in photosynthesis, not the energy source; the text specifies that sunlight provides the energy."
+			"explanation": "This contradicts Bernoulli's principle, which states that $P + \\frac{1}{2}\\rho v^2 = constant$, meaning pressure and velocity have an inverse relationship."
 			},
 			{
-			"text": "Carbon dioxide",
+			"text": "Pressure remains constant regardless of velocity",
 			"correct": false,
-			"explanation": "Carbon dioxide is a substance plants use to make food, but the text identifies sunlight as the energy source for this process."
+			"explanation": "This is incorrect. Bernoulli's equation shows that pressure and velocity are related by $P + \\frac{1}{2}\\rho v^2 = constant$."
 			},
 			{
-			"text": "Chlorophyll",
+			"text": "Pressure is unrelated to velocity",
 			"correct": false,
-			"explanation": "Chlorophyll is required for photosynthesis to occur, but it is not the energy source; the text indicates that sunlight is the energy used."
+			"explanation": "This contradicts the fundamental principle expressed in Bernoulli's equation $P + \\frac{1}{2}\\rho v^2 = constant$."
 			}
 		]
 		}
@@ -79,6 +86,7 @@ const (
 	- "flashcards" should be an array of flashcard objects.
 	- "quizzes" should be an array of quiz question objects.
 	- Ensure the JSON is correctly formatted.
+	- Always use LaTeX notation with dollar signs (like $equation$) for all mathematical expressions, chemical formulas, or other special notation.
 
 	7. **Accuracy and Fidelity:**
 

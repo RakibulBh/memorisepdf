@@ -163,10 +163,15 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 
 	c <- TaskMessage{Type: "progress", Content: "Creating flashcards and quizzes..."}
 
+	fmt.Println(result.Text())
 	jsonText := result.Text()
+
+	// For debugging
+	log.Printf("Task %s: Generated JSON response: %s", taskID, jsonText[:min(200, len(jsonText))])
+
 	var response PresentationResponse
 	if err := json.Unmarshal([]byte(jsonText), &response); err != nil {
-		log.Printf("Task %s: JSON parse error: %v\nData: %s", taskID, err, jsonText[:200])
+		log.Printf("Task %s: JSON parse error: %v\nData: %s", taskID, err, jsonText[:min(200, len(jsonText))])
 		c <- TaskMessage{Type: "error", Content: "Invalid response format"}
 		return
 	}
@@ -179,6 +184,14 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
+}
+
+// Helper function to get the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func generateRequestID() string {

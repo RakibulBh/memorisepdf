@@ -13,6 +13,32 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import "katex/dist/katex.min.css";
+import { InlineMath } from "react-katex";
+
+// Helper function to safely render text that might contain LaTeX
+const renderWithLatex = (text: string) => {
+  if (!text) return null;
+
+  // Check if text contains any LaTeX notation (enclosed in $ signs)
+  if (!text.includes("$")) return text;
+
+  const segments = text.split(/(\$.*?\$)/g);
+  return segments.map((segment, index) => {
+    // If segment starts and ends with $, it's LaTeX
+    if (segment.startsWith("$") && segment.endsWith("$")) {
+      const latex = segment.slice(1, -1); // Remove $ signs
+      try {
+        return <InlineMath key={index} math={latex} />;
+      } catch (error) {
+        console.error("Error rendering LaTeX:", error);
+        return segment; // Fallback to raw text if rendering fails
+      }
+    }
+    // Regular text
+    return <span key={index}>{segment}</span>;
+  });
+};
 
 export default function ResultsPage() {
   const flashcards = useResultStore((state) => state.flashcards);
@@ -142,7 +168,9 @@ export default function ResultsPage() {
                       transition={{ duration: 0.5 }}
                     >
                       <p className="text-sm sm:text-base text-gray-700 text-center overflow-y-auto max-h-full">
-                        {flashcards[currentFlashcard]?.definition}
+                        {renderWithLatex(
+                          flashcards[currentFlashcard]?.definition
+                        )}
                       </p>
                     </motion.div>
                   </motion.div>
@@ -221,7 +249,7 @@ export default function ResultsPage() {
                       transition={{ duration: 0.3 }}
                     >
                       <h3 className="font-semibold text-base sm:text-lg text-green-800 mb-3 sm:mb-4">
-                        {quizzes[currentQuiz]?.question}
+                        {renderWithLatex(quizzes[currentQuiz]?.question)}
                       </h3>
                       <div className="space-y-2 sm:space-y-3">
                         {quizzes[currentQuiz]?.answers.map((answer, aIndex) => (
@@ -266,7 +294,7 @@ export default function ResultsPage() {
                               </div>
                               <div className="flex-1">
                                 <p className="font-medium text-sm sm:text-base">
-                                  {answer.text}
+                                  {renderWithLatex(answer.text)}
                                 </p>
                                 {showAnswer &&
                                   selectedAnswer === aIndex &&
@@ -277,7 +305,7 @@ export default function ResultsPage() {
                                       animate={{ opacity: 1, height: "auto" }}
                                       transition={{ duration: 0.3 }}
                                     >
-                                      {answer.explanation}
+                                      {renderWithLatex(answer.explanation)}
                                     </motion.p>
                                   )}
                               </div>

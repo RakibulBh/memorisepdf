@@ -107,6 +107,18 @@ export default function UploadPage() {
 
   const handleUpload = async () => {
     if (!file) return;
+
+    // Check file size client-side before uploading
+    const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSizeBytes) {
+      toast.error(
+        `File too large (${(file.size / (1024 * 1024)).toFixed(
+          2
+        )}MB). Maximum size is 100MB.`
+      );
+      return;
+    }
+
     setUploading(true);
 
     try {
@@ -120,16 +132,29 @@ export default function UploadPage() {
       // Check if PDF
       if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
         // Convert PDF to text
-        const pdfResponse = await fetch("/api/parse-pdf", {
-          method: "POST",
-          body: formData,
-        });
+        try {
+          const pdfResponse = await fetch("/api/parse-pdf", {
+            method: "POST",
+            body: formData,
+          });
 
-        if (!pdfResponse.ok) {
-          throw new Error(`Failed to parse PDF: ${pdfResponse.statusText}`);
+          if (!pdfResponse.ok) {
+            const errorText = await pdfResponse.text();
+            console.error("PDF parse error:", errorText, pdfResponse.status);
+            if (pdfResponse.status === 413) {
+              throw new Error(`File too large. Maximum size is 100MB.`);
+            }
+            throw new Error(`Failed to parse PDF: ${pdfResponse.statusText}`);
+          }
+
+          fileData = await pdfResponse.json();
+        } catch (error) {
+          console.error("PDF processing error:", error);
+          if (error instanceof Error && error.message.includes("413")) {
+            throw new Error(`File too large. Maximum size is 100MB.`);
+          }
+          throw error;
         }
-
-        fileData = await pdfResponse.json();
       }
       // Check if Office document
       else if (
@@ -142,18 +167,35 @@ export default function UploadPage() {
         fileName.endsWith(".ods")
       ) {
         // Convert Office to text
-        const officeResponse = await fetch("/api/parse-office", {
-          method: "POST",
-          body: formData,
-        });
+        try {
+          const officeResponse = await fetch("/api/parse-office", {
+            method: "POST",
+            body: formData,
+          });
 
-        if (!officeResponse.ok) {
-          throw new Error(
-            `Failed to parse office document: ${officeResponse.statusText}`
-          );
+          if (!officeResponse.ok) {
+            const errorText = await officeResponse.text();
+            console.error(
+              "Office parse error:",
+              errorText,
+              officeResponse.status
+            );
+            if (officeResponse.status === 413) {
+              throw new Error(`File too large. Maximum size is 100MB.`);
+            }
+            throw new Error(
+              `Failed to parse office document: ${officeResponse.status} ${officeResponse.statusText}`
+            );
+          }
+
+          fileData = await officeResponse.json();
+        } catch (error) {
+          console.error("Office processing error:", error);
+          if (error instanceof Error && error.message.includes("413")) {
+            throw new Error(`File too large. Maximum size is 100MB.`);
+          }
+          throw error;
         }
-
-        fileData = await officeResponse.json();
       } else {
         throw new Error(
           "Unsupported file format. Please upload a PDF or Office document."

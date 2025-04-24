@@ -8,6 +8,13 @@ const MAX_FILE_SIZE = parseInt(
   10
 ); // 100MB
 
+// Configure body parser to accept larger files
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file = formData.get("file");

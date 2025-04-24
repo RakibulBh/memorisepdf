@@ -19,6 +19,13 @@ const SUPPORTED_FORMATS = [
   ".ods", // OpenDocument Spreadsheet
 ];
 
+// Configure body parser to accept larger files
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file = formData.get("file");

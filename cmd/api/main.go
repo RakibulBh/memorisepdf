@@ -56,9 +56,6 @@ func main() {
 		llm:    llmClient,
 	}
 
-	// Register signal handlers for graceful shutdown
-	setupSignalHandlers(app)
-
 	// Prepare server
 	log.Printf("Setting up HTTP server on %s", cfg.addr)
 	mux := app.serve()
@@ -69,11 +66,4 @@ func main() {
 	// Start listening for requests
 	log.Printf("Starting HTTP server, listening on %s", cfg.addr)
 	log.Fatal(app.run(mux))
-}
-
-// setupSignalHandlers registers handlers for OS signals to ensure graceful shutdown
-func setupSignalHandlers(app *application) {
-	// This would typically handle SIGINT, SIGTERM, etc.
-	// For now just a placeholder for where this logic would go
-	log.Printf("Signal handlers configured for graceful shutdown")
 }

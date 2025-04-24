@@ -160,7 +160,6 @@ const Hero = () => {
           <StatBox
             key={box.text}
             name={box.text}
-            value={box.value}
             startValue={box.startValue}
             endValue={box.endValue}
             prefix={box.prefix}
@@ -176,7 +175,6 @@ const Hero = () => {
 
 const StatBox = ({
   name,
-  value,
   startValue,
   endValue,
   prefix = "",
@@ -185,7 +183,6 @@ const StatBox = ({
   totalBoxes,
 }: {
   name: string;
-  value: string;
   startValue: number;
   endValue: number;
   prefix?: string;

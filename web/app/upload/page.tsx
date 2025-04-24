@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Upload, Check, X } from "lucide-react";
+import { Upload, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import initiateProcessing from "@/services/requests/parse-presentation";
 import { useResultStore } from "@/store/useResultStore";
@@ -14,6 +14,10 @@ export default function UploadPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [sse, setSse] = useState<EventSource | null>(null);
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">(
+    "medium"
+  );
+  const [progressMessages, setProgressMessages] = useState<string[]>([]);
   const setResults = useResultStore((state) => state.setResults);
   const router = useRouter();
 
@@ -31,11 +35,13 @@ export default function UploadPage() {
       setSse(null);
     }
     setUploading(false);
+    setProgressMessages([]);
   }, [sse]);
 
   // Set up the event handlers with refs to avoid circular deps
   handleProgressRef.current = (event: MessageEvent) => {
     toast.info(event.data);
+    setProgressMessages((prev) => [...prev, event.data]);
   };
 
   handleFinishedRef.current = (event: MessageEvent) => {
@@ -122,10 +128,12 @@ export default function UploadPage() {
     }
 
     setUploading(true);
+    setProgressMessages([]);
 
     try {
       // Step 1: Upload file directly to Vercel Blob
       toast.info("Uploading file...");
+      setProgressMessages((prev) => [...prev, "Uploading file..."]);
 
       const fileType = file.type;
       const fileName = file.name.toLowerCase();
@@ -147,6 +155,7 @@ export default function UploadPage() {
       });
 
       console.log("Upload successful, blob URL:", blob.url);
+      setProgressMessages((prev) => [...prev, "File uploaded successfully"]);
 
       let fileData: { parsedText: string };
       let processingSuccessful = false;
@@ -155,6 +164,7 @@ export default function UploadPage() {
         // Step 2: Process the file based on its type
         if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
           toast.info("Processing PDF...");
+          setProgressMessages((prev) => [...prev, "Processing PDF..."]);
 
           // Process the PDF using the uploaded blob URL
           const pdfResponse = await fetch("/api/process-pdf", {
@@ -187,6 +197,10 @@ export default function UploadPage() {
           fileName.endsWith(".ods")
         ) {
           toast.info("Processing Office document...");
+          setProgressMessages((prev) => [
+            ...prev,
+            "Processing Office document...",
+          ]);
 
           // Process the Office document using the uploaded blob URL
           const officeResponse = await fetch("/api/process-office", {
@@ -235,9 +249,17 @@ export default function UploadPage() {
           return;
         }
 
-        // Step 3: Initiate processing with the parsed text
-        toast.info("Generating flashcards and quizzes...");
-        const response = await initiateProcessing(fileData.parsedText);
+        // Step 3: Initiate processing with the parsed text and difficulty level
+        toast.info(`Generating ${difficulty} flashcards and quizzes...`);
+        setProgressMessages((prev) => [
+          ...prev,
+          `Generating ${difficulty} flashcards and quizzes...`,
+        ]);
+
+        const response = await initiateProcessing(
+          fileData.parsedText,
+          difficulty
+        );
         if (response.error) {
           toast.error(response.error);
           setUploading(false);
@@ -259,6 +281,7 @@ export default function UploadPage() {
         setSse(eventSource);
 
         toast.info("Processing started...");
+        setProgressMessages((prev) => [...prev, "Processing started..."]);
       } catch (processingError) {
         // If any error occurs during processing, delete the blob
         console.error("Processing error:", processingError);
@@ -298,6 +321,47 @@ export default function UploadPage() {
 
   const resetFile = () => {
     setFile(null);
+  };
+
+  const DifficultySelector = () => {
+    const difficultyInfo = {
+      easy: "Tests basic recall and explicit information",
+      medium: "Requires understanding and basic inference",
+      hard: "Needs deeper analysis and complex application",
+    };
+
+    return (
+      <div className="w-full mb-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">
+          Select difficulty:
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {(["easy", "medium", "hard"] as const).map((level) => (
+            <motion.button
+              key={level}
+              onClick={() => setDifficulty(level)}
+              className={`py-2 px-3 rounded-lg border text-sm transition-all ${
+                difficulty === level
+                  ? "border-green-800 bg-green-50 text-green-800"
+                  : "border-gray-300 hover:border-green-300 hover:bg-green-50/50"
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="capitalize font-medium">{level}</span>
+                {difficulty === level && (
+                  <div className="w-3 h-3 rounded-full bg-green-800 ml-2"></div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1 text-left">
+                {difficultyInfo[level]}
+              </p>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -394,24 +458,51 @@ export default function UploadPage() {
                     className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
+                    disabled={uploading}
                   >
                     <X className="w-4 sm:w-5 h-4 sm:h-5 text-gray-500" />
                   </motion.button>
                 </div>
 
-                <motion.button
-                  onClick={handleUpload}
-                  disabled={uploading}
-                  className={`w-full py-2.5 sm:py-3 rounded-full text-white font-semibold ${
-                    uploading
-                      ? "bg-green-700"
-                      : "bg-green-800 hover:bg-green-700"
-                  } transition flex items-center justify-center gap-2`}
-                  whileHover={!uploading ? { scale: 1.02 } : {}}
-                  whileTap={!uploading ? { scale: 0.98 } : {}}
-                >
-                  {uploading ? "Processing..." : "Convert Presentation"}
-                </motion.button>
+                {!uploading && <DifficultySelector />}
+
+                {uploading ? (
+                  <div className="w-full">
+                    <div className="flex flex-col items-center justify-center mb-4">
+                      <motion.div
+                        className="w-10 h-10 mb-3"
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
+                      >
+                        <Loader2 className="w-10 h-10 text-green-800" />
+                      </motion.div>
+                      <p className="text-sm text-green-800 font-medium">
+                        Processing your document...
+                      </p>
+                    </div>
+
+                    <div className="mt-4 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white p-3">
+                      {progressMessages.map((message, index) => (
+                        <p key={index} className="text-xs text-gray-600 mb-1">
+                          {message}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <motion.button
+                    onClick={handleUpload}
+                    className="w-full py-2.5 sm:py-3 rounded-full text-white font-semibold bg-green-800 hover:bg-green-700 transition flex items-center justify-center gap-2"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Convert Presentation
+                  </motion.button>
+                )}
               </div>
             )}
           </motion.div>

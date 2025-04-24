@@ -142,38 +142,30 @@ export default function ResultsPage() {
 
               {flashcards.length > 0 && (
                 <div className="flex-grow flex flex-col items-center justify-center h-[calc(100%-110px)]">
-                  <motion.div
-                    className={`w-full h-48 sm:h-56 md:h-64 relative perspective-1000 cursor-pointer ${
-                      isFlipped ? "flashcard-flipped" : ""
-                    }`}
+                  <div
+                    className="w-full h-48 sm:h-56 md:h-64 cursor-pointer p-1"
                     onClick={() => setIsFlipped(!isFlipped)}
-                    whileHover={{ scale: 1.02 }}
                   >
-                    <motion.div
-                      className={`absolute w-full h-full backface-hidden transition-transform duration-500 ${
-                        isFlipped ? "rotate-y-180 invisible" : ""
-                      } bg-amber-50 rounded-lg flex items-center justify-center p-4 sm:p-6 border-2 border-amber-200`}
-                      animate={{ rotateY: isFlipped ? 180 : 0 }}
-                      transition={{ duration: 0.5 }}
+                    <div
+                      className={`w-full h-full rounded-lg flex items-center justify-center p-4 sm:p-6 border-2 transition-colors duration-300 ease-in-out overflow-auto ${
+                        isFlipped
+                          ? "bg-green-50 border-green-200"
+                          : "bg-amber-50 border-amber-200"
+                      }`}
                     >
-                      <h3 className="text-base sm:text-lg md:text-xl font-semibold text-green-800 text-center">
-                        {flashcards[currentFlashcard]?.term}
-                      </h3>
-                    </motion.div>
-                    <motion.div
-                      className={`absolute w-full h-full backface-hidden transition-transform duration-500 ${
-                        isFlipped ? "" : "rotate-y-180 invisible"
-                      } bg-green-50 rounded-lg flex items-center justify-center p-4 sm:p-6 border-2 border-green-200`}
-                      animate={{ rotateY: isFlipped ? 0 : 180 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <p className="text-sm sm:text-base text-gray-700 text-center overflow-y-auto max-h-full">
-                        {renderWithLatex(
-                          flashcards[currentFlashcard]?.definition
-                        )}
-                      </p>
-                    </motion.div>
-                  </motion.div>
+                      {isFlipped ? (
+                        <p className="text-sm sm:text-base text-gray-700 text-center overflow-y-auto max-h-full">
+                          {renderWithLatex(
+                            flashcards[currentFlashcard]?.definition
+                          )}
+                        </p>
+                      ) : (
+                        <h3 className="text-base sm:text-lg md:text-xl font-semibold text-green-800 text-center">
+                          {flashcards[currentFlashcard]?.term}
+                        </h3>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -199,7 +191,7 @@ export default function ResultsPage() {
                   whileTap={{ scale: 0.95 }}
                 >
                   <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
-                  Flip Card
+                  {isFlipped ? "Show Term" : "Show Definition"}
                 </motion.button>
 
                 <motion.button

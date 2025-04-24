@@ -20,11 +20,20 @@ interface Flashcard {
   definition: string;
 }
 
-export const initiateProcessing = async (text: string) => {
+export const initiateProcessing = async (
+  text: string,
+  difficulty: string = "easy"
+) => {
   const URL = `${process.env.NEXT_PUBLIC_API_URL}/initiate`;
   const response = await fetch(URL, {
     method: "POST",
-    body: JSON.stringify({ presentation_text: text }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      presentation_text: text,
+      difficulty: difficulty,
+    }),
   });
 
   const data = await response.json();

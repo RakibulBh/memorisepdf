@@ -61,6 +61,7 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 
 type presentationRequest struct {
 	PresentationText string `json:"presentation_text"`
+	Difficulty       string `json:"difficulty"`
 }
 
 type PresentationResponse struct {
@@ -111,14 +112,14 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 	ch := make(chan TaskMessage, 10)
 	taskStore.Set(taskID, ch)
 
-	go app.generateContent(taskID, request.PresentationText, ch)
+	go app.generateContent(taskID, request.PresentationText, request.Difficulty, ch)
 
 	app.writeJSON(w, http.StatusOK, "task initiated", map[string]string{
 		"task_id": taskID,
 	})
 }
 
-func (app *application) generateContent(taskID, presentationText string, c chan TaskMessage) {
+func (app *application) generateContent(taskID, presentationText, difficulty string, c chan TaskMessage) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Task %s: PANIC: %v", taskID, r)
@@ -141,7 +142,7 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 		result, err = app.llm.Models.GenerateContent(
 			ctx,
 			app.config.geimini.model,
-			genai.Text(generatePresentationPrompt("presentation", presentationText)),
+			genai.Text(generatePresentationPrompt("testme", presentationText, difficulty)),
 			&genai.GenerateContentConfig{
 				ResponseMIMEType: "application/json",
 				MaxOutputTokens:  int32(app.config.geimini.maxOutputTokens),
@@ -163,7 +164,6 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 
 	c <- TaskMessage{Type: "progress", Content: "Creating flashcards and quizzes..."}
 
-	fmt.Println(result.Text())
 	jsonText := result.Text()
 
 	// For debugging
@@ -184,14 +184,6 @@ func (app *application) generateContent(taskID, presentationText string, c chan 
 
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
-}
-
-// Helper function to get the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func generateRequestID() string {

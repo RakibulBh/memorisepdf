@@ -7,6 +7,7 @@ import initiateProcessing from "@/services/requests/parse-presentation";
 import { useResultStore } from "@/store/useResultStore";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { upload } from "@vercel/blob/client";
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -109,12 +110,13 @@ export default function UploadPage() {
     if (!file) return;
 
     // Check file size client-side before uploading
-    const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+    const maxSizeBytes = 75 * 1024 * 1024; // 75MB (reduced from 500MB)
+
     if (file.size > maxSizeBytes) {
       toast.error(
         `File too large (${(file.size / (1024 * 1024)).toFixed(
           2
-        )}MB). Maximum size is 100MB.`
+        )}MB). Maximum size is 75MB.`
       );
       return;
     }
@@ -122,113 +124,173 @@ export default function UploadPage() {
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Step 1: Upload file directly to Vercel Blob
+      toast.info("Uploading file...");
 
-      let fileData: { parsedText: string };
       const fileType = file.type;
       const fileName = file.name.toLowerCase();
 
-      // Check if PDF
-      if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
-        // Convert PDF to text
-        try {
-          const pdfResponse = await fetch("/api/parse-pdf", {
+      // Create a safe filename - removing spaces and special characters
+      // This helps prevent URL encoding issues with Vercel Blob
+      const timestamp = new Date().getTime();
+      const safeFileName = `${timestamp}-${fileName.replace(
+        /[^a-z0-9.]/gi,
+        "_"
+      )}`;
+
+      console.log("Using safe filename for upload:", safeFileName);
+
+      // Upload to Vercel Blob with safe filename
+      const blob = await upload(safeFileName, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload-handle",
+      });
+
+      console.log("Upload successful, blob URL:", blob.url);
+
+      let fileData: { parsedText: string };
+      let processingSuccessful = false;
+
+      try {
+        // Step 2: Process the file based on its type
+        if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
+          toast.info("Processing PDF...");
+
+          // Process the PDF using the uploaded blob URL
+          const pdfResponse = await fetch("/api/process-pdf", {
             method: "POST",
-            body: formData,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              url: blob.url,
+              originalFileName: file.name,
+            }),
           });
 
           if (!pdfResponse.ok) {
-            const errorText = await pdfResponse.text();
-            console.error("PDF parse error:", errorText, pdfResponse.status);
-            if (pdfResponse.status === 413) {
-              throw new Error(`File too large. Maximum size is 100MB.`);
-            }
-            throw new Error(`Failed to parse PDF: ${pdfResponse.statusText}`);
+            const errorData = await pdfResponse.json();
+            throw new Error(errorData.error || "Failed to process PDF");
           }
 
           fileData = await pdfResponse.json();
-        } catch (error) {
-          console.error("PDF processing error:", error);
-          if (error instanceof Error && error.message.includes("413")) {
-            throw new Error(`File too large. Maximum size is 100MB.`);
-          }
-          throw error;
+          processingSuccessful = true;
         }
-      }
-      // Check if Office document
-      else if (
-        fileType.includes("office") ||
-        fileName.endsWith(".docx") ||
-        fileName.endsWith(".pptx") ||
-        fileName.endsWith(".xlsx") ||
-        fileName.endsWith(".odt") ||
-        fileName.endsWith(".odp") ||
-        fileName.endsWith(".ods")
-      ) {
-        // Convert Office to text
-        try {
-          const officeResponse = await fetch("/api/parse-office", {
+        // Process Office document
+        else if (
+          fileType.includes("office") ||
+          fileName.endsWith(".docx") ||
+          fileName.endsWith(".pptx") ||
+          fileName.endsWith(".xlsx") ||
+          fileName.endsWith(".odt") ||
+          fileName.endsWith(".odp") ||
+          fileName.endsWith(".ods")
+        ) {
+          toast.info("Processing Office document...");
+
+          // Process the Office document using the uploaded blob URL
+          const officeResponse = await fetch("/api/process-office", {
             method: "POST",
-            body: formData,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              url: blob.url,
+              fileName: file.name,
+              safeFileName: safeFileName,
+            }),
           });
 
           if (!officeResponse.ok) {
-            const errorText = await officeResponse.text();
-            console.error(
-              "Office parse error:",
-              errorText,
-              officeResponse.status
-            );
-            if (officeResponse.status === 413) {
-              throw new Error(`File too large. Maximum size is 100MB.`);
-            }
+            const errorData = await officeResponse.json();
             throw new Error(
-              `Failed to parse office document: ${officeResponse.status} ${officeResponse.statusText}`
+              errorData.error || "Failed to process Office document"
             );
           }
 
           fileData = await officeResponse.json();
-        } catch (error) {
-          console.error("Office processing error:", error);
-          if (error instanceof Error && error.message.includes("413")) {
-            throw new Error(`File too large. Maximum size is 100MB.`);
-          }
-          throw error;
+          processingSuccessful = true;
+        } else {
+          throw new Error(
+            "Unsupported file format. Please upload a PDF or Office document."
+          );
         }
-      } else {
-        throw new Error(
-          "Unsupported file format. Please upload a PDF or Office document."
+
+        if (!processingSuccessful) {
+          // If processing failed, we should try to delete the blob
+          // Temporarily disabled for debugging
+          /*
+          try {
+            await fetch("/api/delete-blob", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ url: blob.url }),
+            });
+          } catch (deleteError) {
+            console.error("Failed to delete blob after processing error:", deleteError);
+          }
+          */
+          return;
+        }
+
+        // Step 3: Initiate processing with the parsed text
+        toast.info("Generating flashcards and quizzes...");
+        const response = await initiateProcessing(fileData.parsedText);
+        if (response.error) {
+          toast.error(response.error);
+          setUploading(false);
+          return;
+        }
+        const taskID = response.data.task_id;
+
+        // Close any existing SSE connection
+        if (sse) {
+          cleanup();
+        }
+
+        // begin the SSE with the taskID received
+        const sseURL = new URL(`${process.env.NEXT_PUBLIC_API_URL}/sse`);
+        sseURL.searchParams.append("task_id", taskID);
+
+        // create event source with proper error handling
+        const eventSource = new EventSource(sseURL.toString());
+        setSse(eventSource);
+
+        toast.info("Processing started...");
+      } catch (processingError) {
+        // If any error occurs during processing, delete the blob
+        console.error("Processing error:", processingError);
+        toast.error(
+          processingError instanceof Error
+            ? processingError.message
+            : "Failed to process file"
         );
-      }
 
-      // Initiate processing
-      const response = await initiateProcessing(fileData.parsedText);
-      if (response.error) {
-        toast.error(response.error);
+        // Try to delete the blob - temporarily disabled for debugging
+        /*
+        try {
+          await fetch("/api/delete-blob", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ url: blob.url }),
+          });
+        } catch (deleteError) {
+          console.error("Failed to delete blob after processing error:", deleteError);
+        }
+        */
+
         setUploading(false);
-        return;
       }
-      const taskID = response.data.task_id;
-
-      // Close any existing SSE connection
-      if (sse) {
-        cleanup();
-      }
-
-      // begin the SSE with the taskID received
-      const sseURL = new URL(`${process.env.NEXT_PUBLIC_API_URL}/sse`);
-      sseURL.searchParams.append("task_id", taskID);
-
-      // create event source with proper error handling
-      const eventSource = new EventSource(sseURL.toString());
-      setSse(eventSource);
-
-      toast.info("Processing started...");
-    } catch (error) {
-      console.error("Upload error:", error);
+    } catch (uploadError) {
+      console.error("Upload error:", uploadError);
       toast.error(
-        error instanceof Error ? error.message : "Failed to upload file"
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Failed to upload file"
       );
       setUploading(false);
     }

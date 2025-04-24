@@ -101,7 +101,7 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if len(request.PresentationText) > 50000 {
+	if len(request.PresentationText) > 100000 {
 		log.Printf("[%s] ERROR: text exceeds limit", requestID)
 		app.badRequestError(w, "presentation text exceeds maximum length")
 		return

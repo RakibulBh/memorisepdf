@@ -62,10 +62,10 @@ func (app *application) run(mux http.Handler) error {
 	srv := http.Server{
 		Addr:              app.config.addr,
 		Handler:           mux,
-		WriteTimeout:      60 * time.Second,
-		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      80 * time.Second,
+		ReadTimeout:       80 * time.Second,
 		IdleTimeout:       time.Minute,
-		ReadHeaderTimeout: 10 * time.Second,
+		ReadHeaderTimeout: 50 * time.Second,
 	}
 
 	return srv.ListenAndServe()

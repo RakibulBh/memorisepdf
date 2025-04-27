@@ -4,160 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"log"
-	"net/http"
-	"slices"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"google.golang.org/genai"
 )
-
-func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
-	requestID := generateRequestID()
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	rc := http.NewResponseController(w)
-
-	taskID := r.URL.Query().Get("task_id")
-	if taskID == "" {
-		log.Printf("[%s] ERROR: task ID is required", requestID)
-		fmt.Fprintf(w, "event: error\ndata: Task ID is required\n\n")
-		rc.Flush()
-		return
-	}
-
-	c, exists := taskStore.Get(taskID)
-	if !exists {
-		log.Printf("[%s] ERROR: task not found: %s", requestID, taskID)
-		fmt.Fprintf(w, "event: error\ndata: Task not found\n\n")
-		rc.Flush()
-		return
-	}
-
-	defer func() {
-		taskStore.Delete(taskID)
-	}()
-
-	for {
-		select {
-		case msg, ok := <-c:
-			if !ok {
-				fmt.Fprintf(w, "event: finished\ndata: Task completed\n\n")
-				rc.Flush()
-			}
-			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", msg.Type, msg.Content)
-			rc.Flush()
-		case <-r.Context().Done():
-			return
-		}
-	}
-}
-
-type presentationRequest struct {
-	ServiceType      string `json:"service_type"`
-	PresentationText string `json:"presentation_text"`
-	TeachingStyle    string `json:"teaching_style,omitempty"`
-	Difficulty       string `json:"difficulty,omitempty"`
-}
-
-type PresentationResponse struct {
-	Flashcards []Flashcard `json:"flashcards"`
-	Quizzes    []Quiz      `json:"quizzes"`
-}
-
-type Flashcard struct {
-	Term       string `json:"term"`
-	Definition string `json:"definition"`
-}
-
-type Quiz struct {
-	Question string   `json:"question"`
-	Answers  []Answer `json:"answers"`
-}
-
-type Answer struct {
-	Text        string `json:"text"`
-	Correct     bool   `json:"correct"`
-	Explanation string `json:"explanation"`
-}
-
-var difficultyLevels = []string{"easy", "medium", "hard"}
-var teachingStyles = []string{"simple-language", "analogy-driven", "scaffolded-learning"}
-
-func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Request) {
-	requestID := generateRequestID()
-
-	var request presentationRequest
-	err := app.readJSON(w, r, &request)
-	if err != nil {
-		log.Printf("[%s] ERROR reading JSON: %v", requestID, err)
-		app.badRequestError(w, err.Error())
-		return
-	}
-
-	if strings.TrimSpace(request.PresentationText) == "" {
-		log.Printf("[%s] ERROR: empty presentation text", requestID)
-		app.badRequestError(w, "presentation text cannot be empty")
-		return
-	}
-
-	if len(request.PresentationText) > 100000 {
-		log.Printf("[%s] ERROR: text exceeds limit", requestID)
-		app.badRequestError(w, "presentation text exceeds maximum length")
-		return
-	}
-
-	// validate service type
-	if request.ServiceType != "testme" && request.ServiceType != "teachme" {
-		log.Printf("[%s] ERROR: invalid service type", requestID)
-		app.badRequestError(w, "invalid service type")
-		return
-	}
-
-	// validate difficulty
-	if !slices.Contains(difficultyLevels, request.Difficulty) && request.ServiceType == "testme" {
-		log.Printf("[%s] ERROR: invalid difficulty", requestID)
-		app.badRequestError(w, "invalid difficulty")
-		return
-	}
-
-	// validate teaching style
-	if !slices.Contains(teachingStyles, request.TeachingStyle) && request.ServiceType == "teachme" {
-		log.Printf("[%s] ERROR: invalid teaching style", requestID)
-		app.badRequestError(w, "invalid teaching style")
-		return
-	}
-
-	taskID := uuid.New().String()
-	ch := make(chan TaskMessage, 10)
-	taskStore.Set(taskID, ch)
-
-	if request.ServiceType == "testme" {
-		go app.generateQuizzes(taskID, request.PresentationText, request.Difficulty, ch)
-	} else {
-		go app.generateTeachingCards(taskID, request.PresentationText, request.TeachingStyle, ch)
-	}
-
-	app.writeJSON(w, http.StatusOK, "task initiated", map[string]string{
-		"task_id": taskID,
-	})
-}
-
-type TeachingCard struct {
-	Subtopic string `json:"subtopic"`
-	Teaching string `json:"teaching"`
-}
-
-type TeachingCardsResponse struct {
-	TeachingCards []TeachingCard `json:"teaching_cards"`
-}
 
 func (app *application) generateTeachingCards(taskID, presentationText, teachingStyle string, c chan TaskMessage) {
 	defer func() {
@@ -291,8 +142,4 @@ func (app *application) generateQuizzes(taskID, presentationText, difficulty str
 
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
-}
-
-func generateRequestID() string {
-	return fmt.Sprintf("%x", time.Now().UnixNano())
 }

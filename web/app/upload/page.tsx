@@ -18,7 +18,6 @@ import initiateProcessing from "@/services/requests/parse-presentation";
 import { useResultStore } from "@/store/useResultStore";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { upload } from "@vercel/blob/client";
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -35,6 +34,9 @@ export default function UploadPage() {
     "simple-language" | "analogy-driven" | "scaffolded-learning"
   >("simple-language");
   const [progressMessages, setProgressMessages] = useState<string[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<
+    "connecting" | "connected" | "error" | null
+  >(null);
   const setResults = useResultStore((state) => state.setResults);
   const setTeachingCards = useResultStore((state) => state.setTeachingCards);
   const router = useRouter();
@@ -42,7 +44,9 @@ export default function UploadPage() {
   // Use refs to avoid circular dependencies
   const handleProgressRef = useRef<(event: MessageEvent) => void>(() => {});
   const handleFinishedRef = useRef<(event: MessageEvent) => void>(() => {});
-  const handleErrorRef = useRef<(event: Event) => void>(() => {});
+  const handleErrorRef = useRef<(event: MessageEvent | Event) => void>(
+    () => {}
+  );
 
   const cleanup = useCallback(() => {
     if (sse) {
@@ -53,11 +57,17 @@ export default function UploadPage() {
       setSse(null);
     }
     setUploading(false);
-    setProgressMessages([]);
+    setConnectionStatus(null);
   }, [sse]);
 
   // Set up the event handlers with refs to avoid circular deps
   handleProgressRef.current = (event: MessageEvent) => {
+    // Don't display the connection established message to the user
+    if (event.data === "Connection established") {
+      setConnectionStatus("connected");
+      return;
+    }
+
     toast.info(event.data);
     setProgressMessages((prev) => [...prev, event.data]);
   };
@@ -92,14 +102,26 @@ export default function UploadPage() {
     }
   };
 
-  handleErrorRef.current = (event: Event) => {
-    console.error("SSE error:", event);
-    toast.error("An error occurred during processing");
+  handleErrorRef.current = (event: MessageEvent | Event) => {
+    setConnectionStatus("error");
+
+    // Handle both standard error events and SSE error events
+    if (event instanceof MessageEvent) {
+      console.error("SSE message error:", event.data);
+      toast.error(event.data || "An error occurred during processing");
+    } else {
+      console.error("SSE connection error:", event);
+      toast.error("Connection error: Please try again");
+    }
+
     cleanup();
   };
 
   useEffect(() => {
     if (!sse) return;
+
+    // Set connection status to connecting
+    setConnectionStatus("connecting");
 
     // Add event listeners using the current refs
     sse.addEventListener("progress", handleProgressRef.current);
@@ -153,198 +175,66 @@ export default function UploadPage() {
 
     setUploading(true);
     setProgressMessages([]);
+    setConnectionStatus(null);
 
     try {
-      // Step 1: Upload file directly to Vercel Blob
       toast.info("Uploading file...");
-      setProgressMessages((prev) => [...prev, "Uploading file..."]);
 
-      const fileType = file.type;
-      const fileName = file.name.toLowerCase();
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("service_type", serviceType);
+      formData.append("difficulty", difficulty);
+      formData.append("teaching_style", teachingStyle);
 
-      // Create a safe filename - removing spaces and special characters
-      // This helps prevent URL encoding issues with Vercel Blob
-      const timestamp = new Date().getTime();
-      const safeFileName = `${timestamp}-${fileName.replace(
-        /[^a-z0-9.]/gi,
-        "_"
-      )}`;
+      const response = await initiateProcessing(formData);
 
-      console.log("Using safe filename for upload:", safeFileName);
-
-      // Upload to Vercel Blob with safe filename
-      const blob = await upload(safeFileName, file, {
-        access: "public",
-        handleUploadUrl: "/api/upload-handle",
-      });
-
-      console.log("Upload successful, blob URL:", blob.url);
-      setProgressMessages((prev) => [...prev, "File uploaded successfully"]);
-
-      let fileData: { parsedText: string };
-      let processingSuccessful = false;
-
-      try {
-        // Step 2: Process the file based on its type
-        if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
-          toast.info("Processing PDF...");
-          setProgressMessages((prev) => [...prev, "Processing PDF..."]);
-
-          // Process the PDF using the uploaded blob URL
-          const pdfResponse = await fetch("/api/process-pdf", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              url: blob.url,
-              originalFileName: file.name,
-            }),
-          });
-
-          if (!pdfResponse.ok) {
-            const errorData = await pdfResponse.json();
-            throw new Error(errorData.error || "Failed to process PDF");
-          }
-
-          fileData = await pdfResponse.json();
-          processingSuccessful = true;
-        }
-        // Process Office document
-        else if (
-          fileType.includes("office") ||
-          fileName.endsWith(".docx") ||
-          fileName.endsWith(".pptx") ||
-          fileName.endsWith(".xlsx") ||
-          fileName.endsWith(".odt") ||
-          fileName.endsWith(".odp") ||
-          fileName.endsWith(".ods")
-        ) {
-          toast.info("Processing Office document...");
-          setProgressMessages((prev) => [
-            ...prev,
-            "Processing Office document...",
-          ]);
-
-          // Process the Office document using the uploaded blob URL
-          const officeResponse = await fetch("/api/process-office", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              url: blob.url,
-              fileName: file.name,
-              safeFileName: safeFileName,
-            }),
-          });
-
-          if (!officeResponse.ok) {
-            const errorData = await officeResponse.json();
-            throw new Error(
-              errorData.error || "Failed to process Office document"
-            );
-          }
-
-          fileData = await officeResponse.json();
-          processingSuccessful = true;
-        } else {
-          throw new Error(
-            "Unsupported file format. Please upload a PDF or Office document."
-          );
-        }
-
-        if (!processingSuccessful) {
-          // If processing failed, we should try to delete the blob
-          // Temporarily disabled for debugging
-          /*
-          try {
-            await fetch("/api/delete-blob", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ url: blob.url }),
-            });
-          } catch (deleteError) {
-            console.error("Failed to delete blob after processing error:", deleteError);
-          }
-          */
-          return;
-        }
-
-        // Step 3: Initiate processing with the parsed text, difficulty level, and service type
-        const actionType =
-          serviceType === "testme"
-            ? `Generating ${difficulty} flashcards and quizzes...`
-            : `Creating teaching content with ${teachingStyle} style...`;
-
-        toast.info(actionType);
-        setProgressMessages((prev) => [...prev, actionType]);
-
-        // Include the service type and either difficulty or teaching style depending on service type
-        const params =
-          serviceType === "testme"
-            ? { text: fileData.parsedText, difficulty, serviceType }
-            : { text: fileData.parsedText, teachingStyle, serviceType };
-
-        const response = await initiateProcessing(params);
-        if (response.error) {
-          toast.error(response.error);
-          setUploading(false);
-          return;
-        }
-        const taskID = response.data.task_id;
-
-        // Close any existing SSE connection
-        if (sse) {
-          cleanup();
-        }
-
-        // begin the SSE with the taskID received
-        const sseURL = new URL(`${process.env.NEXT_PUBLIC_API_URL}/sse`);
-        sseURL.searchParams.append("task_id", taskID);
-
-        // create event source with proper error handling
-        const eventSource = new EventSource(sseURL.toString());
-        setSse(eventSource);
-
-        toast.info("Processing started...");
-        setProgressMessages((prev) => [...prev, "Processing started..."]);
-      } catch (processingError) {
-        // If any error occurs during processing, delete the blob
-        console.error("Processing error:", processingError);
-        toast.error(
-          processingError instanceof Error
-            ? processingError.message
-            : "Failed to process file"
-        );
-
-        // Try to delete the blob - temporarily disabled for debugging
-        /*
-        try {
-          await fetch("/api/delete-blob", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ url: blob.url }),
-          });
-        } catch (deleteError) {
-          console.error("Failed to delete blob after processing error:", deleteError);
-        }
-        */
-
+      if (response.error) {
+        toast.error(response.error);
         setUploading(false);
+        return;
       }
-    } catch (uploadError) {
-      console.error("Upload error:", uploadError);
+      const taskID = response.data.task_id;
+
+      if (sse) {
+        cleanup();
+      }
+
+      // begin the SSE with the taskID received
+      const sseURL = new URL(`${process.env.NEXT_PUBLIC_API_URL}/sse`);
+      sseURL.searchParams.append("task_id", taskID);
+
+      // create event source with proper error handling
+      const eventSource = new EventSource(sseURL.toString());
+
+      // Add a timeout for initial connection
+      const connectionTimeout = setTimeout(() => {
+        if (connectionStatus === "connecting") {
+          toast.error("Server connection timed out. Please try again.");
+          eventSource.close();
+          setUploading(false);
+          setConnectionStatus("error");
+        }
+      }, 15000); // 15 seconds timeout
+
+      setSse(eventSource);
+
+      // Clear the timeout once connected
+      if (connectionStatus === "connected") {
+        clearTimeout(connectionTimeout);
+      }
+
+      toast.info("Processing started...");
+      setProgressMessages((prev) => [...prev, "Processing started..."]);
+    } catch (processingError) {
+      // If any error occurs during processing, handle it
+      console.error("Processing error:", processingError);
       toast.error(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "Failed to upload file"
+        processingError instanceof Error
+          ? processingError.message
+          : "Failed to process file"
       );
       setUploading(false);
+      setConnectionStatus("error");
     }
   };
 
@@ -662,16 +552,28 @@ export default function UploadPage() {
                         <Loader2 className="w-10 h-10 text-green-800" />
                       </motion.div>
                       <p className="text-sm text-green-800 font-medium">
-                        Processing your document...
+                        {connectionStatus === "connecting"
+                          ? "Connecting to server..."
+                          : connectionStatus === "error"
+                          ? "Connection error"
+                          : "Processing your document..."}
                       </p>
                     </div>
 
                     <div className="mt-4 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white p-3">
-                      {progressMessages.map((message, index) => (
-                        <p key={index} className="text-xs text-gray-600 mb-1">
-                          {message}
+                      {progressMessages.length > 0 ? (
+                        progressMessages.map((message, index) => (
+                          <p key={index} className="text-xs text-gray-600 mb-1">
+                            {message}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-xs text-gray-400 text-center">
+                          {connectionStatus === "connecting"
+                            ? "Establishing connection..."
+                            : "Waiting for processing updates..."}
                         </p>
-                      ))}
+                      )}
                     </div>
                   </div>
                 ) : (

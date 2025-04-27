@@ -6,6 +6,7 @@ import (
 
 	"github.com/RakibulBh/relatewme/internal/env"
 	"github.com/RakibulBh/relatewme/internal/llm"
+	"github.com/google/go-tika/tika"
 	"github.com/joho/godotenv"
 )
 
@@ -34,6 +35,9 @@ func main() {
 			apiKey:          env.GetString("GEIMINI_API_KEY", ""),
 			maxOutputTokens: env.GetInt("MAX_OUTPUT_TOKENS", 4096),
 		},
+		tika: tikaConfig{
+			url: env.GetString("TIKA_URL", "https://apache-tike.fly.dev"),
+		},
 	}
 
 	log.Printf("Configuration loaded: LLM model=%s, max_tokens=%d",
@@ -51,9 +55,18 @@ func main() {
 		log.Printf("WARNING: LLM client may not have initialized properly")
 	}
 
+	log.Printf("Initializing Tika client...")
+	tikaClient := tika.NewClient(nil, cfg.tika.url)
+	if tikaClient != nil {
+		log.Printf("Tika client initialized successfully")
+	} else {
+		log.Printf("WARNING: Tika client may not have initialized properly")
+	}
+
 	app := &application{
 		config: cfg,
 		llm:    llmClient,
+		tika:   tikaClient,
 	}
 
 	// Prepare server

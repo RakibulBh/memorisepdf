@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/google/go-tika/tika"
 	"google.golang.org/genai"
 )
 
@@ -17,15 +18,21 @@ type geiminiConfig struct {
 	maxOutputTokens int
 }
 
+type tikaConfig struct {
+	url string
+}
+
 type application struct {
 	config config
 	llm    *genai.Client
+	tika   *tika.Client
 }
 
 type config struct {
 	addr    string
 	env     string
 	geimini geiminiConfig
+	tika    tikaConfig
 }
 
 func (app *application) serve() http.Handler {

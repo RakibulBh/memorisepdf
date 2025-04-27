@@ -25,41 +25,44 @@ interface TeachingCard {
   teaching: string;
 }
 
-interface ProcessingParams {
-  text: string;
-  serviceType: "testme" | "teachme";
-  difficulty?: string;
-  teachingStyle?: string;
-}
-
-export const initiateProcessing = async (params: ProcessingParams) => {
+export const initiateProcessing = async (formData: FormData) => {
   const URL = `${process.env.NEXT_PUBLIC_API_URL}/initiate`;
 
-  let requestBody = {};
-
-  if (params.serviceType === "testme") {
-    requestBody = {
-      service_type: params.serviceType,
-      presentation_text: params.text,
-      difficulty: params.difficulty || "easy",
-    };
-  } else {
-    requestBody = {
-      service_type: params.serviceType,
-      presentation_text: params.text,
-      teaching_style: params.teachingStyle || "simple-language",
-    };
+  // validate data in the client side
+  if (!formData.get("file")) {
+    return { error: "File is required" };
+  }
+  if (!formData.get("service_type")) {
+    return { error: "Service type is required" };
+  }
+  if (
+    formData.get("service_type") !== "testme" &&
+    formData.get("service_type") !== "teachme"
+  ) {
+    return { error: "Invalid service type" };
+  }
+  if (formData.get("service_type") === "teachme") {
+    if (!formData.get("teaching_style")) {
+      return { error: "Teaching style is required" };
+    }
+  }
+  if (formData.get("service_type") === "testme") {
+    if (!formData.get("difficulty")) {
+      return { error: "Difficulty is required" };
+    }
   }
 
   const response = await fetch(URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
+    body: formData,
   });
 
+  if (!response.ok) {
+    return { error: (await response.json()).error };
+  }
+
   const data = await response.json();
+  console.log(data);
 
   return data;
 };

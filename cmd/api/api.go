@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/RakibulBh/relatewme/internal/env"
+	"github.com/RakibulBh/relatewme/internal/logger"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -18,6 +19,10 @@ type geiminiConfig struct {
 	maxOutputTokens int
 }
 
+type mongoConfig struct {
+	mongoUri string
+}
+
 type tikaConfig struct {
 	url string
 }
@@ -26,13 +31,15 @@ type application struct {
 	config config
 	llm    *genai.Client
 	tika   *tika.Client
+	logger *logger.Logger
 }
 
 type config struct {
-	addr    string
-	env     string
-	geimini geiminiConfig
-	tika    tikaConfig
+	addr        string
+	env         string
+	geimini     geiminiConfig
+	tika        tikaConfig
+	mongoConfig mongoConfig
 }
 
 func (app *application) serve() http.Handler {

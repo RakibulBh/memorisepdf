@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"time"
 
 	"github.com/RakibulBh/relatewme/internal/env"
 	"github.com/RakibulBh/relatewme/internal/llm"
+	"github.com/RakibulBh/relatewme/internal/logger"
 	"github.com/google/go-tika/tika"
 	"github.com/joho/godotenv"
 )
@@ -36,7 +38,10 @@ func main() {
 			maxOutputTokens: env.GetInt("MAX_OUTPUT_TOKENS", 4096),
 		},
 		tika: tikaConfig{
-			url: env.GetString("TIKA_URL", "https://apache-tike.fly.dev"),
+			url: env.GetString("TIKA_URL", ""),
+		},
+		mongoConfig: mongoConfig{
+			mongoUri: env.GetString("MONGO_URI", ""),
 		},
 	}
 
@@ -63,10 +68,25 @@ func main() {
 		log.Printf("WARNING: Tika client may not have initialized properly")
 	}
 
+	// init logger service
+	client, err := logger.New(cfg.mongoConfig.mongoUri)
+	if err != nil {
+		log.Printf("WARNING: Logger service encountered an error: %d", err)
+	}
+	defer func() {
+		if err = client.Disconnect(context.Background()); err != nil {
+			panic(err)
+		}
+	}()
+	loggerService := &logger.Logger{
+		Client: client,
+	}
+
 	app := &application{
 		config: cfg,
 		llm:    llmClient,
 		tika:   tikaClient,
+		logger: loggerService,
 	}
 
 	// Prepare server

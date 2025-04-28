@@ -5,12 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"log"
+	"mime/multipart"
+	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/genai"
 )
 
-func (app *application) generateTeachingCards(taskID, presentationText, teachingStyle string, c chan TaskMessage) {
+func (app *application) generateTeachingCards(file *multipart.FileHeader, taskID, presentationText, teachingStyle string, c chan TaskMessage) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Task %s: PANIC: %v", taskID, r)
@@ -74,10 +77,11 @@ func (app *application) generateTeachingCards(taskID, presentationText, teaching
 	}
 
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
+	app.logger.LogSuccessfulOutput(ctx, "finished", file.Filename, convertSizeToMB(file.Size), "teach-me", getFileFormat(file.Filename))
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
 }
 
-func (app *application) generateQuizzes(taskID, presentationText, difficulty string, c chan TaskMessage) {
+func (app *application) generateQuizzes(file *multipart.FileHeader, taskID, presentationText, difficulty string, c chan TaskMessage) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Task %s: PANIC: %v", taskID, r)
@@ -141,5 +145,16 @@ func (app *application) generateQuizzes(taskID, presentationText, difficulty str
 	}
 
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
+	app.logger.LogSuccessfulOutput(ctx, "finished", file.Filename, convertSizeToMB(file.Size), "test-me", getFileFormat(file.Filename))
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
+}
+
+func getFileFormat(fileName string) string {
+	strings := strings.Split(fileName, ".")
+	return strings[len(strings)-1]
+}
+
+func convertSizeToMB(size int64) string {
+	sizeInMb := float64(size) / 1e6
+	return strconv.FormatFloat(sizeInMb, 'f', 2, 64) + "MB"
 }

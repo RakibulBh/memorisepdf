@@ -103,7 +103,7 @@ func (app *application) initiateSSE(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("initiateProcessing")
-	file, _, err := r.FormFile("file")
+	file, fileHeader, err := r.FormFile("file")
 	if err != nil {
 		app.badRequestError(w, "failed to read file")
 		return
@@ -158,9 +158,9 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 	taskStore.Set(taskID, ch)
 
 	if serviceType == "testme" {
-		go app.generateQuizzes(taskID, presentationText, difficulty, ch)
+		go app.generateQuizzes(fileHeader, taskID, presentationText, difficulty, ch)
 	} else {
-		go app.generateTeachingCards(taskID, presentationText, teachingStyle, ch)
+		go app.generateTeachingCards(fileHeader, taskID, presentationText, teachingStyle, ch)
 	}
 
 	app.writeJSON(w, http.StatusOK, "task initiated", map[string]string{

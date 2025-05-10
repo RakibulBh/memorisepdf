@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -21,16 +22,36 @@ func New(mongUri string) (*mongo.Client, error) {
 	return client, err
 }
 
-func (l Logger) LogSuccessfulOutput(ctx context.Context, message string, fileName string, fileSize string, operation string, fileFormat string) error {
+func (l Logger) LogSuccessfulOutput(ctx context.Context, message string, fileName string, fileSize string, operation string, fileFormat string, ipAddress string) error {
 	collection := l.Client.Database("logs").Collection("success_logs")
 
-	_, err := collection.InsertOne(ctx, bson.D{
-		{Key: "fileName", Value: fileName},
-		{Key: "fileSize", Value: fileSize},
-		{Key: "fileFormat", Value: fileFormat},
-		{Key: "message", Value: message},
-		{Key: "operation", Value: operation},
-	})
+	doc := bson.M{
+		"fileName":   fileName,
+		"fileSize":   fileSize,
+		"fileFormat": fileFormat,
+		"message":    message,
+		"operation":  operation,
+		"ipAddress":  ipAddress,
+		"createdAt":  time.Now(),
+	}
 
+	_, err := collection.InsertOne(ctx, doc)
+	return err
+}
+
+func (l Logger) LogFailedOutput(ctx context.Context, message string, fileName string, fileSize string, operation string, fileFormat string, ipAddress string) error {
+	collection := l.Client.Database("logs").Collection("failed_logs")
+
+	doc := bson.M{
+		"fileName":   fileName,
+		"fileSize":   fileSize,
+		"fileFormat": fileFormat,
+		"message":    message,
+		"operation":  operation,
+		"ipAddress":  ipAddress,
+		"createdAt":  time.Now(),
+	}
+
+	_, err := collection.InsertOne(ctx, doc)
 	return err
 }

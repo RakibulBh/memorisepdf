@@ -69,6 +69,9 @@ func (app *application) serve() http.Handler {
 	// initiate SSE
 	r.Get("/sse", app.initiateSSE)
 
+	// get last 20 logs
+	r.Get("/logs", app.GetLogs)
+
 	return r
 }
 

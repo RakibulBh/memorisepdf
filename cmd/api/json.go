@@ -38,3 +38,19 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, data an
 
 	return dec.Decode(data)
 }
+
+func (app *application) errorJSON(w http.ResponseWriter, err error, status ...int) {
+	response := jsonResponse{
+		Error:   true,
+		Message: err.Error(),
+	}
+
+	js, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}

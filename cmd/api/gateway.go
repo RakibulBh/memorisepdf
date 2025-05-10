@@ -112,6 +112,10 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 
 	requestID := generateRequestID()
 
+	// Get client IP address
+	clientIP := getIPFromRequest(r)
+	log.Printf("[%s] Request from IP: %s", requestID, clientIP)
+
 	// get the form data values
 	difficulty := r.FormValue("difficulty")
 	teachingStyle := r.FormValue("teaching_style")
@@ -155,6 +159,14 @@ func (app *application) initiateProcessing(w http.ResponseWriter, r *http.Reques
 
 	taskID := uuid.New().String()
 	ch := make(chan TaskMessage, 10)
+
+	// Send an initial message with the client IP
+	ipMessage := TaskMessage{
+		Type:    "ip",
+		Content: clientIP,
+	}
+	ch <- ipMessage
+
 	taskStore.Set(taskID, ch)
 
 	if serviceType == "testme" {

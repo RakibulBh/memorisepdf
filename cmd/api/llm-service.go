@@ -6,12 +6,16 @@ import (
 	"encoding/json"
 	"log"
 	"mime/multipart"
+	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"google.golang.org/genai"
 )
+
+// TaskMessage struct needs to be modified to include IP address
 
 func (app *application) generateTeachingCards(file *multipart.FileHeader, taskID, presentationText, teachingStyle string, c chan TaskMessage) {
 	defer func() {
@@ -22,6 +26,21 @@ func (app *application) generateTeachingCards(file *multipart.FileHeader, taskID
 		close(c)
 		taskStore.Delete(taskID)
 	}()
+
+	// Get IP address from first message in channel
+	ipAddress := "unknown"
+	select {
+	case msg := <-c:
+		if msg.Type == "ip" {
+			ipAddress = msg.Content
+		}
+		// If not an IP message, send it back to the channel to be processed normally
+		if msg.Type != "ip" {
+			c <- msg
+		}
+	default:
+		// No message available
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -77,7 +96,7 @@ func (app *application) generateTeachingCards(file *multipart.FileHeader, taskID
 	}
 
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
-	app.logger.LogSuccessfulOutput(ctx, "finished", file.Filename, convertSizeToMB(file.Size), "teach-me", getFileFormat(file.Filename))
+	app.logger.LogSuccessfulOutput(ctx, "finished", file.Filename, convertSizeToMB(file.Size), "teach-me", getFileFormat(file.Filename), ipAddress)
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
 }
 
@@ -90,6 +109,21 @@ func (app *application) generateQuizzes(file *multipart.FileHeader, taskID, pres
 		close(c)
 		taskStore.Delete(taskID)
 	}()
+
+	// Get IP address from first message in channel
+	ipAddress := "unknown"
+	select {
+	case msg := <-c:
+		if msg.Type == "ip" {
+			ipAddress = msg.Content
+		}
+		// If not an IP message, send it back to the channel to be processed normally
+		if msg.Type != "ip" {
+			c <- msg
+		}
+	default:
+		// No message available
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -145,7 +179,7 @@ func (app *application) generateQuizzes(file *multipart.FileHeader, taskID, pres
 	}
 
 	encodedJSON := base64.StdEncoding.EncodeToString([]byte(jsonText))
-	app.logger.LogSuccessfulOutput(ctx, "finished", file.Filename, convertSizeToMB(file.Size), "test-me", getFileFormat(file.Filename))
+	app.logger.LogSuccessfulOutput(ctx, "finished", file.Filename, convertSizeToMB(file.Size), "test-me", getFileFormat(file.Filename), ipAddress)
 	c <- TaskMessage{Type: "finished", Content: encodedJSON}
 }
 
@@ -157,4 +191,35 @@ func getFileFormat(fileName string) string {
 func convertSizeToMB(size int64) string {
 	sizeInMb := float64(size) / 1e6
 	return strconv.FormatFloat(sizeInMb, 'f', 2, 64) + "MB"
+}
+
+// Helper function to get IP address from request
+func getIPFromRequest(r *http.Request) string {
+	// Try to get IP from X-Forwarded-For header
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip != "" {
+		// X-Forwarded-For might contain multiple IPs, get the first one
+		ips := strings.Split(ip, ",")
+		if len(ips) > 0 {
+			return strings.TrimSpace(ips[0])
+		}
+	}
+
+	// Try to get IP from X-Real-IP header
+	ip = r.Header.Get("X-Real-IP")
+	if ip != "" {
+		return ip
+	}
+
+	// Get IP from RemoteAddr
+	if r.RemoteAddr != "" {
+		// RemoteAddr contains IP:port, split to get just IP
+		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err == nil {
+			return ip
+		}
+		return r.RemoteAddr
+	}
+
+	return "unknown"
 }

@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 type PresentationResponse struct {
 	Flashcards []Flashcard `json:"flashcards"`
 	Quizzes    []Quiz      `json:"quizzes"`
@@ -31,4 +33,15 @@ type TeachingCard struct {
 
 type TeachingCardsResponse struct {
 	TeachingCards []TeachingCard `json:"teaching_cards"`
+}
+
+// logger
+type LogEntry struct {
+	FileName   string    `bson:"fileName" json:"fileName"`
+	FileSize   string    `bson:"fileSize" json:"fileSize"`
+	FileFormat string    `bson:"fileFormat" json:"fileFormat"`
+	Message    string    `bson:"message" json:"message"`
+	Operation  string    `bson:"operation" json:"operation"`
+	IPAddress  string    `bson:"ipAddress" json:"ipAddress"`
+	CreatedAt  time.Time `bson:"createdAt" json:"createdAt"`
 }

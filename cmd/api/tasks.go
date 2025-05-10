@@ -1,10 +1,14 @@
 package main
 
-import "sync"
+import (
+	"net/http"
+	"sync"
+)
 
 type TaskMessage struct {
-	Type    string // "progress", "finished", or "error"
-	Content string // The message or result
+	Type    string        `json:"type"`    // "progress", "finished", or "error"
+	Content string        `json:"content"` // The message or result
+	Request *http.Request `json:"-"`       // Not serialized for output, used to extract IP
 }
 
 type TaskStore struct {

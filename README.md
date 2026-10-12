@@ -106,6 +106,13 @@ TEST_DATABASE_URL='postgres://unmemorize:unmemorize@localhost:5432/unmemorize?ss
 
 CI runs them with a Postgres service container.
 
+The Tika client has the same arrangement, since the only way to know the request
+it builds is one Tika accepts is to send it to a real server:
+
+```bash
+TEST_TIKA_URL=http://localhost:9998 TEST_PDF=some-lecture.pdf go test ./internal/tika
+```
+
 | Path | Contents |
 | --- | --- |
 | `cmd/api` | Server entry point |

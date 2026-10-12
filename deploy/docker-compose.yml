@@ -3,8 +3,11 @@ services:
     image: ${API_IMAGE:-ghcr.io/rakibulbh/unmemorize-api:latest}
     container_name: unmemorize-api
     restart: unless-stopped
+    # Sits at the compose project root, which is the one place compose reads
+    # for variable interpolation without being told. Keeping it here means
+    # `docker compose logs` works on the server with no extra flags.
     env_file:
-      - ./data/.env
+      - ./.env
     # Given as separate parts rather than as one postgres:// URL. The api
     # assembles and escapes the connection string itself, so the password can
     # contain any character -- and the password itself is not written here at
@@ -31,7 +34,8 @@ services:
       tika:
         condition: service_started
     networks:
-      - default
+      # Reaches db and tika here. Nothing else is on this network.
+      - backend
       # Lets nginx-proxy-manager reach it as unmemorize-api:8080.
       - proxy-network
     logging:
@@ -49,8 +53,8 @@ services:
     depends_on:
       - api
     networks:
-      - default
-      # Lets nginx-proxy-manager reach it as unmemorize-web:3000.
+      # Only the proxy network: the frontend has no reason to reach the
+      # database or Tika, so it is not put on a network with them.
       - proxy-network
     logging:
       driver: json-file
@@ -85,7 +89,7 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - default
+      - backend
     logging:
       driver: json-file
       options:
@@ -98,10 +102,11 @@ services:
     image: apache/tika:3.3.1.0-full
     container_name: unmemorize-tika
     restart: unless-stopped
-    # Not published to the host and not on the proxy network: Tika will parse
-    # anything it is handed, so only the api may reach it.
+    # Not published to the host, and on the backend network only: Tika will
+    # parse whatever it is handed, so the api is the only thing that can reach
+    # it.
     networks:
-      - default
+      - backend
     logging:
       driver: json-file
       options:
@@ -112,5 +117,10 @@ volumes:
   pgdata:
 
 networks:
+  # Private to this stack. db and tika are only ever reachable from the api.
+  backend:
+
+  # Created by nginx-proxy-manager, which terminates TLS and routes the
+  # public hostname to web, and /api and /auth to api.
   proxy-network:
     external: true

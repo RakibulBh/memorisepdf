@@ -13,8 +13,10 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    // In development the API runs on its own port. In production the proxy
-    // routes these paths, so no rewrite is needed and the base URL is empty.
+    // Development only. Next resolves rewrites when it builds, so this cannot
+    // be changed at runtime -- and it does not need to be: in production the
+    // reverse proxy routes /api and /auth to the api container, and the
+    // production image is built with API_ORIGIN unset so no rewrite exists.
     const api = process.env.API_ORIGIN;
     if (!api) return [];
 

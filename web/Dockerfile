@@ -12,10 +12,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# The API base URL is read at request time on the server and injected into the
-# browser bundle at build time, so it has to be present for the build.
-ARG NEXT_PUBLIC_API_URL=/api
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# API_ORIGIN is deliberately not set. Next resolves rewrites at build time, and
+# in production there are none: the browser calls /api and /auth on this same
+# hostname and the reverse proxy routes them to the api container. The rewrite
+# exists only so `next dev` can reach an api running on another port.
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

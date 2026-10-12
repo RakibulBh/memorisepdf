@@ -125,9 +125,6 @@ jobs:
           context: web
           file: web/Dockerfile
           push: true
-          # Browser requests go to the same hostname as the page, so the proxy
-          # routes /api and /auth to the api container and no CORS is involved.
-          build-args: NEXT_PUBLIC_API_URL=
           tags: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/unmemorize-web:latest
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
@@ -200,14 +197,16 @@ jobs:
 
       - name: Check the env file exists
         run: |
-          ssh deploy-target "test -s ${DEPLOY_PATH}/data/.env" || {
-            echo "::error::${DEPLOY_PATH}/data/.env is missing on the server; see docs/deploy.md" >&2
+          ssh deploy-target "test -s ${DEPLOY_PATH}/.env" || {
+            echo "::error::${DEPLOY_PATH}/.env is missing on the server; see docs/deploy.md" >&2
             exit 1
           }
-          ssh deploy-target "grep -q '^POSTGRES_PASSWORD=' ${DEPLOY_PATH}/data/.env" || {
-            echo "::error::POSTGRES_PASSWORD is missing from ${DEPLOY_PATH}/data/.env" >&2
-            exit 1
-          }
+          for key in POSTGRES_PASSWORD GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GEMINI_API_KEY APP_URL; do
+            ssh deploy-target "grep -q \"^${key}=.\" ${DEPLOY_PATH}/.env" || {
+              echo "::error::${key} is missing or empty in ${DEPLOY_PATH}/.env; see docs/deploy.md" >&2
+              exit 1
+            }
+          done
 
       # Piped so the token never lands in the remote command line, and
       # discarded again once the pull is done.
@@ -221,7 +220,7 @@ jobs:
             ssh deploy-target "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
           ssh deploy-target "cd ${DEPLOY_PATH} && \
             API_IMAGE='${API_IMAGE}' WEB_IMAGE='${WEB_IMAGE}' \
-            docker compose --env-file data/.env up -d --pull always --remove-orphans"
+            docker compose up -d --pull always --remove-orphans"
           ssh deploy-target "docker logout ghcr.io && docker image prune -f"
 
       # /ready reports on the database and Tika too, so a green check means the

@@ -1,40 +1,25 @@
-# Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.27 AS build
 
-# Install build dependencies
-RUN apk add --no-cache git build-base
+WORKDIR /src
 
-# Set working directory
-WORKDIR /app
-
-# Copy and download Go dependencies first (for better caching)
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the Go source code
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 
-# Build the Go application
-RUN go build -o bin/main ./cmd/api
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-amd64} \
+    go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
 
-# Run stage
-FROM alpine:latest
+FROM gcr.io/distroless/static-debian12
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates
+COPY --from=build /out/api /usr/local/bin/api
 
-# Set working directory
-WORKDIR /app
+# Uploaded lecture files and the log live here, so /data must be a writable
+# mount that survives a restart.
+WORKDIR /data
 
-# Copy the Go binary from the builder stage
-COPY --from=builder /app/bin/main ./
-
-# Set environment variables
-ENV PORT=8080
-
-# Expose port 8080 (fly.io standard)
 EXPOSE 8080
 
-# Run the Go API
-CMD ["./main"]
+ENTRYPOINT ["/usr/local/bin/api"]

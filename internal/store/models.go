@@ -71,8 +71,10 @@ type File struct {
 	UploadedAt    time.Time `json:"uploadedAt"`
 
 	// Which kinds of study material this file has already produced, filled in
-	// by ListFilesWithGenerations so the UI can show it without a second query.
-	Analysed []string `json:"analysed,omitempty"`
+	// by ListFiles so the UI can show it without a second query. Always sent,
+	// as an empty list when nothing has been analysed, so a caller can read it
+	// without checking whether the field is there.
+	Analysed []string `json:"analysed"`
 }
 
 type Generation struct {

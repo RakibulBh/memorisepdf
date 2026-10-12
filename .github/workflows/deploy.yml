@@ -1,0 +1,240 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # The store tests run against a real database, because the no-duplicate
+    # rule is enforced by the schema and cannot be checked without one.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: unmemorize
+          POSTGRES_PASSWORD: unmemorize
+          POSTGRES_DB: unmemorize
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "psql -U unmemorize -d unmemorize -c 'select 1'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgres://unmemorize:unmemorize@localhost:5432/unmemorize?sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Scoped rather than ./..., which walks into web/node_modules and
+      # finds a stray Go package shipped inside an npm dependency.
+      - run: go vet ./cmd/... ./internal/...
+
+      # Applies the schema the store tests expect, and proves the binary boots.
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          GOOGLE_CLIENT_ID: ci
+          GOOGLE_CLIENT_SECRET: ci
+          GEMINI_API_KEY: ci
+          LOG_FILE: ""
+          PORT: "8099"
+        run: |
+          go run ./cmd/api &
+          pid=$!
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:8099/health; then break; fi
+            sleep 1
+          done
+          curl -fsS http://localhost:8099/health
+          kill $pid
+
+      - run: go test ./cmd/... ./internal/...
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+        working-directory: web
+      - run: npx tsc --noEmit
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api: ${{ steps.images.outputs.api }}
+      web: ${{ steps.images.outputs.web }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ghcr rejects uppercase paths, so the owner is lowercased once here.
+      - id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - id: build-api
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/unmemorize-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - id: build-web
+        uses: docker/build-push-action@v7
+        with:
+          context: web
+          file: web/Dockerfile
+          push: true
+          # Browser requests go to the same hostname as the page, so the proxy
+          # routes /api and /auth to the api container and no CORS is involved.
+          build-args: NEXT_PUBLIC_API_URL=
+          tags: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/unmemorize-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # Pinned by digest, so the server runs exactly what this job built.
+      - id: images
+        env:
+          OWNER: ${{ steps.repo.outputs.owner }}
+          API_DIGEST: ${{ steps.build-api.outputs.digest }}
+          WEB_DIGEST: ${{ steps.build-web.outputs.digest }}
+        run: |
+          echo "api=${REGISTRY}/${OWNER}/unmemorize-api@${API_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "web=${REGISTRY}/${OWNER}/unmemorize-web@${WEB_DIGEST}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'apps/unmemorize' }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '8080' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check deploy configuration
+        run: |
+          missing=
+          if [ -z "$DEPLOY_HOST" ]; then
+            missing="$missing DEPLOY_HOST (the tailnet address of the server)"
+          fi
+          if [ -z "$DEPLOY_USER" ]; then
+            missing="$missing DEPLOY_USER (the ssh user)"
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::set these repository variables:$missing"
+            exit 1
+          fi
+
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Configure ssh
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          {
+            echo "Host deploy-target"
+            echo "  HostName ${DEPLOY_HOST}"
+            echo "  User ${DEPLOY_USER}"
+            echo "  IdentityFile ~/.ssh/deploy"
+            echo "  IdentitiesOnly yes"
+            echo "  StrictHostKeyChecking accept-new"
+            echo "  ConnectTimeout 15"
+          } >> ~/.ssh/config
+
+      - name: Upload compose file
+        run: |
+          ssh deploy-target "mkdir -p ${DEPLOY_PATH}/data"
+          scp deploy/docker-compose.yml "deploy-target:${DEPLOY_PATH}/docker-compose.yml"
+
+      - name: Check the env file exists
+        run: |
+          ssh deploy-target "test -s ${DEPLOY_PATH}/data/.env" || {
+            echo "::error::${DEPLOY_PATH}/data/.env is missing on the server; see docs/deploy.md" >&2
+            exit 1
+          }
+          ssh deploy-target "grep -q '^POSTGRES_PASSWORD=' ${DEPLOY_PATH}/data/.env" || {
+            echo "::error::POSTGRES_PASSWORD is missing from ${DEPLOY_PATH}/data/.env" >&2
+            exit 1
+          }
+
+      # Piped so the token never lands in the remote command line, and
+      # discarded again once the pull is done.
+      - name: Pull and restart
+        env:
+          API_IMAGE: ${{ needs.build.outputs.api }}
+          WEB_IMAGE: ${{ needs.build.outputs.web }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" |
+            ssh deploy-target "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
+          ssh deploy-target "cd ${DEPLOY_PATH} && \
+            API_IMAGE='${API_IMAGE}' WEB_IMAGE='${WEB_IMAGE}' \
+            docker compose --env-file data/.env up -d --pull always --remove-orphans"
+          ssh deploy-target "docker logout ghcr.io && docker image prune -f"
+
+      # /ready reports on the database and Tika too, so a green check means the
+      # stack can actually serve rather than merely that a process started.
+      - name: Health check
+        run: |
+          for _ in $(seq 1 20); do
+            if ssh deploy-target "curl -fsS -o /dev/null http://localhost:${DEPLOY_PORT}/ready" 2>/dev/null; then
+              echo "unmemorize is ready on ${DEPLOY_HOST}"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::the api never became ready" >&2
+          ssh deploy-target "cd ${DEPLOY_PATH} && docker compose ps && docker compose logs --tail=80"
+          exit 1

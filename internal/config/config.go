@@ -104,7 +104,9 @@ func Load() (Config, error) {
 		},
 		Log: Log{
 			Level: str("LOG_LEVEL", "info"),
-			File:  str("LOG_FILE", "app.log"),
+			// Read with the empty value preserved, so LOG_FILE= turns the log
+			// file off rather than falling back to the default name.
+			File: strAllowEmpty("LOG_FILE", "app.log"),
 		},
 	}
 
@@ -131,6 +133,15 @@ func Load() (Config, error) {
 // str reads a text setting, falling back to a default when it is not set.
 func str(key, fallback string) string {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
+		return v
+	}
+	return fallback
+}
+
+// strAllowEmpty reads a text setting, treating an explicitly empty value as a
+// deliberate choice rather than as missing.
+func strAllowEmpty(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
 	return fallback

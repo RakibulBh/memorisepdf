@@ -1,6 +1,6 @@
 # Architecture
 
-MemorisePDF turns lecture slides into quizzes, flashcards and teaching cards.
+Unmemorize turns lecture slides into quizzes, flashcards and teaching cards.
 You organise work as **subjects** (a course), each holding **modules**, each
 holding the **lecture files** you upload. Pressing *Quiz me* on a module
 generates from the files that have never been analysed and reuses everything
@@ -13,7 +13,7 @@ already stored.
 | API | Go 1.27, chi v5 | Already the backend; single static binary deploys cleanly |
 | Database | Postgres 18 | The data is a strict hierarchy — foreign keys and cascade deletes do the work application code otherwise repeats |
 | Migrations | goose, embedded | Schema travels inside the binary, so a deploy can never run against an older schema |
-| Text extraction | Apache Tika, self-hosted | Handles PDF, PPTX and DOCX with one HTTP call |
+| Text extraction | Apache Tika 3.3 `-full`, self-hosted | Handles PDF, PPTX and DOCX with one HTTP call, and bundles Tesseract so scanned decks yield text |
 | Generation | Gemini `gemini-3.6-flash` | Structured JSON output via `responseSchema`, so parsing cannot drift |
 | Auth | Google OAuth 2.0 + PKCE | No passwords to store, reset or leak |
 | Sessions | Opaque tokens in Postgres | Revocable server-side, unlike a JWT |
@@ -28,16 +28,26 @@ browser
   │
   ▼
 nginx-proxy-manager  (TLS, public domain)
-  ├── /           ──►  web    :3000   Next.js standalone
-  └── /api, /auth ──►  api    :8080   Go
-                         ├──►  db     :5432   Postgres   (volume: pgdata)
-                         ├──►  tika   :9998   Apache Tika
-                         └──►  /data/files    uploaded slides (bind mount)
+  │                                      ┌──── proxy-network ────┐
+  ├── /           ──►  web    :3000      │  Next.js standalone   │
+  └── /api, /auth ──►  api    :8080      │  Go                   │
+                         │               └───────────────────────┘
+                         │               ┌──── backend ──────────┐
+                         ├──►  db   :5432│  Postgres (pgdata)    │
+                         ├──►  tika :9998│  Apache Tika          │
+                         └──►  /data/files  uploaded slides      │
+                                         └───────────────────────┘
 ```
 
-All four services sit in one compose stack. `web` and `api` share an origin
-through the proxy, so there is no CORS in production — the browser only ever
-talks to one hostname.
+Two networks, not one. `db` and `tika` sit on `backend`, which `web` is not
+attached to: the frontend has no reason to reach either, and Tika in particular
+will parse whatever it is handed. Neither publishes a port to the host. The api
+is on both networks, and is published on `127.0.0.1:8080` only so the deploy's
+health check has somewhere to call.
+
+`web` and `api` answer on the same public hostname through the proxy, so there
+is no CORS in production and the session cookie is always sent — the browser
+only ever talks to one host.
 
 ## Data model
 

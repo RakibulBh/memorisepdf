@@ -3,8 +3,11 @@ module github.com/RakibulBh/unmemorize
 go 1.27.0
 
 require (
+	github.com/go-chi/chi/v5 v5.4.0
+	github.com/go-chi/cors v1.2.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.29.0
 	golang.org/x/oauth2 v0.37.0
 	google.golang.org/genai v1.73.0

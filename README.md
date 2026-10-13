@@ -1,86 +1,171 @@
-# Unmemorizable
+# Unmemorize 📚 — your lectures, worth revising from
 
-Unmemorizable is a web application that converts presentation slides into interactive quizzes and flashcards, helping users study more efficiently and effectively.
+Organise a course into **subjects** and **modules**, upload each module's
+lecture slides, and turn them into quizzes, flashcards and teaching cards.
 
-## Features
-
-- **Instant Quiz Generation**: Upload presentations and convert them into quizzes in under a minute
-- **Interactive Learning**: Dynamic quizzes and flashcards to enhance retention
-- **Efficient Study Time**: Reduce study time by up to 98% with targeted learning
-- **Higher Engagement**: 5x higher engagement compared to traditional study methods
-
-## Technology Stack
-
-- **Frontend**: Next.js, React, TailwindCSS, Framer Motion
-- **Backend**: Go
-- **Database**: TBD
-
-## Project Structure
+Everything generated is stored. Pressing *Quiz me* on a module you have already
+studied sends nothing to the model — it only analyses lectures it has never seen
+before, then serves the whole accumulated pool.
 
 ```
-├── web/                    # Frontend application
-│   ├── app/                # Next.js app directory
-│   ├── components/         # React components
-│   ├── public/             # Static assets
-│   └── ...
-├── internal/               # Go backend code
-├── cmd/                    # Go entry points
-└── ...
+Computer Science                    ← subject
+└── Databases                       ← module
+    ├── lecture01.pdf   ✓ quizzed · ✓ flashcards
+    ├── lecture02.pdf   ✓ quizzed
+    └── lecture03.pdf   — new
+
+    [ Quiz me ]  →  "1 new file to analyse, reusing 2"
 ```
 
-## Development Setup
+## What it does
 
-### Prerequisites
+| Surface | What you get |
+| --- | --- |
+| Subjects and modules | A course per subject, a taught unit per module |
+| Uploads | PDF, PPTX, PPT, DOCX, DOC, TXT and MD — scanned decks are OCR'd |
+| Quiz me | Multiple choice at easy, medium or hard, with every option explained |
+| Flashcards | Term and definition, flipped with a click or the space bar |
+| Teach me | The material explained from the ground up, in one of three styles |
 
-- Node.js (v18+)
-- Go (v1.21+)
-- Docker and Docker Compose (optional)
+Maths, chemistry and Greek symbols come back as LaTeX and are rendered with
+KaTeX, so a formula on a slide stays a formula.
 
-### Frontend Setup
+## How the no-duplicate rule works
+
+A `generations` row is the record of work already paid for, keyed on
+`(file_id, kind, variant)` with a unique index. Asking for study material runs:
+
+1. List the module's files.
+2. Skip any with a **completed** row for this kind and setting.
+3. Send only the rest to Gemini.
+4. Write each result — the ledger row and its items — in one transaction.
+5. Serve the module's whole pool, old items and new together.
+
+Consequences worth knowing:
+
+- **Restudying is free.** A module whose files are all analysed costs nothing.
+- **A harder quiz is new work.** The difficulty is part of the key, so asking
+  for `hard` generates — and your `easy` questions are still there afterwards.
+- **Flashcards have no setting**, so there is only ever one flashcard
+  generation per file.
+- **A failure is recorded as failed**, not complete, so the next attempt retries
+  that file rather than leaving a silent gap.
+- **A file is its bytes.** Identity is the SHA-256, so re-uploading the same
+  deck is recognised instead of analysed again, and the same slides in two
+  modules are stored on disk once.
+
+## Stack
+
+| Layer | Choice |
+| --- | --- |
+| API | Go 1.27, chi v5 |
+| Database | Postgres 18, schema embedded with goose |
+| Text extraction | Apache Tika 3.3 (`-full`, so Tesseract is included) |
+| Generation | Gemini `gemini-3.6-flash` with a response schema per kind |
+| Auth | Google OAuth 2.0 + PKCE, opaque sessions stored hashed |
+| Frontend | Next.js 16, React 19, Tailwind 4 |
+| Hosting | Four-container compose stack on your own server |
+
+See [docs/architecture.md](docs/architecture.md) for why each of these, and
+[docs/deploy.md](docs/deploy.md) for the deployment.
+
+## Running it locally
+
+Requires Go 1.27+, Node 20.9+, and Docker.
 
 ```bash
-cd web
-npm install
-npm run dev
+make dev-up          # postgres + tika in the background
+cp .env.example .env # then fill in the two keys below
+make run             # the api on :8080
+make web-dev         # the frontend on :3000
 ```
 
-### Backend Setup
+Two values in `.env` have to be real:
+
+- `GEMINI_API_KEY` from [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` from a Google OAuth client whose
+  redirect URI is `http://localhost:8080/auth/google/callback`
+
+The schema is applied by the api on boot, so there is no migration step to run.
+
+## Development
 
 ```bash
-# Using Go directly
-go run cmd/app/main.go
-
-# Using Docker
-docker-compose up
+make check     # gofmt, go vet, go test, tsc --noEmit, eslint
+make test      # go test only
 ```
 
-## API Documentation
+The store tests run against a real Postgres, because the no-duplicate rule is
+enforced by the schema and cannot be checked without one. They skip unless you
+point them at a database:
 
-TBD
+```bash
+TEST_DATABASE_URL='postgres://unmemorize:unmemorize@localhost:5432/unmemorize?sslmode=disable' \
+  go test ./internal/store
+```
 
-## Deployment
+CI runs them with a Postgres service container.
 
-TBD
+The Tika client has the same arrangement, since the only way to know the request
+it builds is one Tika accepts is to send it to a real server:
 
-## Adding New Features
+```bash
+TEST_TIKA_URL=http://localhost:9998 TEST_PDF=some-lecture.pdf go test ./internal/tika
+```
 
-When adding new features to the project:
+| Path | Contents |
+| --- | --- |
+| `cmd/api` | Server entry point |
+| `internal/config` | Every environment variable, read once at boot |
+| `internal/store` | Postgres queries, one file per table group |
+| `internal/migrations` | Embedded goose SQL |
+| `internal/auth` | Google OAuth flow, sessions, request middleware |
+| `internal/files` | Content-addressed disk storage |
+| `internal/tika` | Text extraction over plain HTTP |
+| `internal/llm` | Gemini client, prompts, response schemas |
+| `internal/generate` | The pipeline that skips already-analysed files |
+| `internal/server` | Router, handlers, the progress stream |
+| `web` | Next.js frontend |
 
-1. Create a new branch from main
-2. Implement your feature
-3. Write appropriate tests
-4. Submit a PR for review
+## API
 
-## Performance Considerations
+Everything under `/api` needs a session cookie.
 
-- The application uses optimized image formats and sizes
-- Code splitting is implemented for faster loading
-- Animation effects are optimized to prevent performance issues
+| Route | Does |
+| --- | --- |
+| `GET /health`, `GET /ready` | Liveness; readiness also checks Postgres and Tika |
+| `GET /auth/google` | Starts sign-in |
+| `GET /auth/google/callback` | Finishes it and sets the session cookie |
+| `POST /auth/logout` | Revokes the session server-side |
+| `GET /api/me`, `/api/meta`, `/api/usage` | Account, available options, storage used |
+| `GET POST /api/subjects` | List and create subjects |
+| `GET PATCH DELETE /api/subjects/{id}` | One subject |
+| `GET POST /api/subjects/{id}/modules` | List and create modules |
+| `GET PATCH DELETE /api/modules/{id}` | One module |
+| `GET POST /api/modules/{id}/files` | List and upload lectures |
+| `POST /api/modules/{id}/generate` | Analyse new files, streaming progress |
+| `GET /api/modules/{id}/quiz?difficulty=` | The stored question pool |
+| `GET /api/modules/{id}/flashcards` | The stored flashcard pool |
+| `GET /api/modules/{id}/teaching?style=` | The stored teaching card pool |
+| `DELETE /api/files/{id}` | Delete a lecture and everything made from it |
+| `GET /api/files/{id}/download` | The original file |
 
-## Troubleshooting
+`POST .../generate` answers with an event stream rather than JSON, so the work
+and the progress for it share one request — dropping the connection cancels the
+work it belonged to. `EventSource` cannot be used because it only issues GETs;
+`lib/api.ts` reads the stream off the `fetch` body instead.
 
-TBD
+## Limits
+
+Signup is open to any Google account, so these are enforced per user:
+
+| Limit | Default | Env |
+| --- | --- | --- |
+| Single upload | 100 MB | `MAX_FILE_SIZE` |
+| Total storage | 500 MB | `USER_STORAGE_QUOTA` |
+| Files per module | 50 | `MAX_FILES_PER_MODULE` |
+| Generations | 20/hour | `GENERATE_RATE_LIMIT` |
 
 ## License
 
-This project is proprietary and confidential. Unauthorized copying of files, via any medium is strictly prohibited.
+Not currently licensed. Add a `LICENSE` file before sharing this publicly.

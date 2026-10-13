@@ -1,63 +1,38 @@
 import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
-import "./globals.css";
 import { Toaster } from "sonner";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import AnimationProvider from "@/components/AnimationProvider";
-import CookieConsent from "@/components/CookieConsent";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+import "./globals.css";
+import "katex/dist/katex.min.css";
 
-const lora = Lora({
-  variable: "--font-lora",
-  subsets: ["latin"],
-});
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+const lora = Lora({ variable: "--font-lora", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MemorisePDF - Convert Slides to Quizzes & Flashcards",
-  description:
-    "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
-  keywords: [
-    "flashcards",
-    "quizzes",
-    "learning tools",
-    "study aids",
-    "slide conversion",
-  ],
-  openGraph: {
-    title: "MemorisePDF - Convert Slides to Quizzes & Flashcards",
-    description:
-      "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
-    type: "website",
-    locale: "en_US",
+  title: {
+    default: "Unmemorize — turn lecture slides into quizzes and flashcards",
+    template: "%s · Unmemorize",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "MemorisePDF - Convert Slides to Quizzes & Flashcards",
+  description:
+    "Organise your lectures into subjects and modules, then turn each module's slides into quizzes, flashcards and teaching cards.",
+  keywords: ["flashcards", "quizzes", "revision", "lecture notes", "study tools"],
+  openGraph: {
+    title: "Unmemorize",
     description:
-      "Transform your presentations and slides into interactive quizzes and flashcards for effective learning and retention",
+      "Turn your lecture slides into quizzes, flashcards and teaching cards.",
+    type: "website",
+    locale: "en_GB",
   },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${inter.variable} ${lora.variable} antialiased text-gray-900`}
-      >
-        <Toaster />
-        <Navbar />
-        <AnimationProvider>{children}</AnimationProvider>
-        <Footer />
-        <CookieConsent />
+    <html lang="en-GB">
+      <body className={`${inter.variable} ${lora.variable} font-sans`}>
+        <Toaster position="top-center" richColors />
+        {children}
       </body>
     </html>
   );

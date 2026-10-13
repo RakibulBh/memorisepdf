@@ -1,23 +1,45 @@
 @import "tailwindcss";
 
-/* Add styles for flashcard animations */
-.perspective-1000 {
-  perspective: 1000px;
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-lora), ui-serif, Georgia, serif;
 }
 
-.backface-hidden {
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-stone-50 text-stone-900 antialiased;
+  }
+}
+
+/* Flashcards flip in 3D, which needs a perspective on the container and the
+   back face hidden while it is turned away. */
+.card-scene {
+  perspective: 1400px;
+}
+
+.card-inner {
+  transform-style: preserve-3d;
+  transition: transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
 
-.rotate-y-180 {
+.card-face-back {
   transform: rotateY(180deg);
 }
 
-.flashcard-flipped .rotate-y-180 {
-  transform: rotateY(0deg);
-}
-
-.flashcard-flipped .rotate-y-0 {
-  transform: rotateY(180deg);
+/* KaTeX renders maths slightly large against body text in these cards. */
+.katex {
+  font-size: 1em;
 }

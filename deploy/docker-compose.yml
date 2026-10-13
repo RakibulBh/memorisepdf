@@ -1,0 +1,126 @@
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/rakibulbh/unmemorize-api:latest}
+    container_name: unmemorize-api
+    restart: unless-stopped
+    # Sits at the compose project root, which is the one place compose reads
+    # for variable interpolation without being told. Keeping it here means
+    # `docker compose logs` works on the server with no extra flags.
+    env_file:
+      - ./.env
+    # Given as separate parts rather than as one postgres:// URL. The api
+    # assembles and escapes the connection string itself, so the password can
+    # contain any character -- and the password itself is not written here at
+    # all. It reaches the api through the env_file above.
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=unmemorize
+      - DB_USER=unmemorize
+      - TIKA_URL=http://tika:9998
+      - DATA_DIR=/data
+      - PORT=8080
+    ports:
+      # Bound to localhost only. Public traffic arrives through
+      # nginx-proxy-manager over proxy-network; this is just so a health check
+      # on the box itself has somewhere to call.
+      - "127.0.0.1:${DEPLOY_PORT:-8080}:8080"
+    volumes:
+      # Holds .env, the uploaded lecture files and the log. Must stay writable.
+      - ./data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      tika:
+        condition: service_started
+    networks:
+      # Reaches db and tika here. Nothing else is on this network.
+      - backend
+      # Lets nginx-proxy-manager reach it as unmemorize-api:8080.
+      - proxy-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/rakibulbh/unmemorize-web:latest}
+    container_name: unmemorize-web
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+    depends_on:
+      - api
+    networks:
+      # Only the proxy network: the frontend has no reason to reach the
+      # database or Tika, so it is not put on a network with them.
+      - proxy-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  db:
+    image: postgres:18-alpine
+    container_name: unmemorize-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=unmemorize
+      - POSTGRES_DB=unmemorize
+      # Listed by name with no value: compose passes it through from the .env
+      # beside this file, so no password is written into this file. Postgres
+      # refuses to initialise without one, and the deploy workflow checks the
+      # .env for it before restarting anything.
+      - POSTGRES_PASSWORD
+    volumes:
+      # Postgres 18+ wants a single mount here, not at /data: it stores
+      # data in a major-version subdirectory so pg_upgrade --link works.
+      - pgdata:/var/lib/postgresql
+    # The api waits on this, so it never starts against a database that is
+    # still initialising and crash-loops on boot.
+    healthcheck:
+      # A real query, not pg_isready: that reports success while the
+      # database is still being created during first-boot init.
+      test: ["CMD-SHELL", "psql -U unmemorize -d unmemorize -c 'select 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  tika:
+    # The -full variant bundles Tesseract, so a scanned or image-only lecture
+    # deck still yields text. The plain image would return nothing for those.
+    image: apache/tika:3.3.1.0-full
+    container_name: unmemorize-tika
+    restart: unless-stopped
+    # Not published to the host, and on the backend network only: Tika will
+    # parse whatever it is handed, so the api is the only thing that can reach
+    # it.
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+
+networks:
+  # Private to this stack. db and tika are only ever reachable from the api.
+  backend:
+
+  # Created by nginx-proxy-manager, which terminates TLS and routes the
+  # public hostname to web, and /api and /auth to api.
+  proxy-network:
+    external: true

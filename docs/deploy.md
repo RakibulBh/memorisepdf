@@ -134,9 +134,9 @@ Needs Docker with the compose plugin, the deploy key authorised, and the
 mkdir -p ~/apps/unmemorize/data
 
 cat > ~/apps/unmemorize/.env <<'EOF'
-# Database. Compose creates the database user with this and hands it to the app,
-# which builds and escapes the connection string itself -- so any characters are
-# fine here.
+# Database. This is the only database password you set. Compose creates the
+# database user with it and passes it through to the app, which builds and
+# escapes the connection string itself -- so any characters are fine here.
 POSTGRES_PASSWORD=<a long random string>
 
 ENV=production
@@ -168,7 +168,10 @@ chmod 600 ~/apps/unmemorize/.env
 The workflow refuses to deploy if this file is missing or if any of
 `POSTGRES_PASSWORD`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
 `GEMINI_API_KEY` or `APP_URL` is empty, rather than starting a container that
-would crash on boot or fail at first sign-in.
+would crash on boot or fail at first sign-in. That check is where a missing
+password is caught: the compose file deliberately names `POSTGRES_PASSWORD`
+without a value, so that no file in the repository contains anything shaped
+like a password.
 
 **The file lives at the compose project root, not in `data/`.** That is the one
 place compose reads automatically, which is what lets you run

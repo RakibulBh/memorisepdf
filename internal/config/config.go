@@ -114,7 +114,7 @@ func Load() (Config, error) {
 
 	var missing []string
 	if cfg.DatabaseURL == "" {
-		missing = append(missing, "DB_PASSWORD (or a whole DATABASE_URL)")
+		missing = append(missing, "DB_PASSWORD or POSTGRES_PASSWORD (or a whole DATABASE_URL)")
 	}
 	if cfg.Google.ClientID == "" {
 		missing = append(missing, "GOOGLE_CLIENT_ID")
@@ -148,7 +148,10 @@ func databaseURL() string {
 		return given
 	}
 
-	password := str("DB_PASSWORD", "")
+	// POSTGRES_PASSWORD is accepted as well because that is the name the
+	// database container itself requires. Honouring both means the server needs
+	// one password set once, rather than the same value under two names.
+	password := str("DB_PASSWORD", str("POSTGRES_PASSWORD", ""))
 	if password == "" {
 		return ""
 	}

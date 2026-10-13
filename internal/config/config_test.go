@@ -107,7 +107,7 @@ func TestDatabaseURLIsEmptyWithoutAPassword(t *testing.T) {
 
 func TestLoadReportsEverythingMissingAtOnce(t *testing.T) {
 	for _, key := range []string{
-		"DATABASE_URL", "DB_PASSWORD",
+		"DATABASE_URL", "DB_PASSWORD", "POSTGRES_PASSWORD",
 		"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GEMINI_API_KEY",
 	} {
 		t.Setenv(key, "")
@@ -204,5 +204,38 @@ func TestEmptyLogFileDisablesTheFile(t *testing.T) {
 	}
 	if cfg.Log.File != "" {
 		t.Errorf("Log.File = %q, want empty", cfg.Log.File)
+	}
+}
+
+// On the server only POSTGRES_PASSWORD is set, because that is the name the
+// database container requires. The app has to accept it so the password is
+// configured once rather than under two names.
+func TestDatabaseURLAcceptsPostgresPassword(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("DB_PASSWORD", "")
+	t.Setenv("POSTGRES_PASSWORD", "from-compose")
+	t.Setenv("DB_HOST", "db")
+
+	parsed, err := url.Parse(databaseURL())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if password, _ := parsed.User.Password(); password != "from-compose" {
+		t.Errorf("password = %q, want from-compose", password)
+	}
+}
+
+// DB_PASSWORD is the app's own name for it, so it has to win when both are set.
+func TestDBPasswordWinsOverPostgresPassword(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("DB_PASSWORD", "preferred")
+	t.Setenv("POSTGRES_PASSWORD", "fallback")
+
+	parsed, err := url.Parse(databaseURL())
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if password, _ := parsed.User.Password(); password != "preferred" {
+		t.Errorf("password = %q, want preferred", password)
 	}
 }

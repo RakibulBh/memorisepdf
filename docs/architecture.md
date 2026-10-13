@@ -1,6 +1,6 @@
 # Architecture
 
-Unmemorize turns lecture slides into quizzes, flashcards and teaching cards.
+MemorisePDF turns lecture slides into quizzes, flashcards and teaching cards.
 You organise work as **subjects** (a course), each holding **modules**, each
 holding the **lecture files** you upload. Pressing *Quiz me* on a module
 generates from the files that have never been analysed and reuses everything

@@ -28,7 +28,7 @@ export default function Home() {
         <header className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
           <span className="flex items-center gap-2 font-serif text-lg font-semibold">
             <BookOpen className="size-5" aria-hidden />
-            Unmemorize
+            MemorisePDF
           </span>
         </header>
 
@@ -67,7 +67,7 @@ export default function Home() {
 
         <footer className="border-t border-stone-200 py-8">
           <p className="mx-auto max-w-5xl px-4 text-sm text-stone-500">
-            Unmemorize — self-hosted.
+            MemorisePDF — self-hosted.
           </p>
         </footer>
       </div>

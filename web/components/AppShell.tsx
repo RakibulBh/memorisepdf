@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2 font-serif text-lg font-semibold text-stone-900"
           >
             <BookOpen className="size-5" aria-hidden />
-            Unmemorize
+            MemorisePDF
           </Link>
 
           <div className="flex items-center gap-3">

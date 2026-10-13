@@ -23,7 +23,7 @@ function LoginForm() {
     <div className="w-full max-w-sm">
       <div className="flex items-center justify-center gap-2 font-serif text-xl font-semibold">
         <BookOpen className="size-5" aria-hidden />
-        Unmemorize
+        MemorisePDF
       </div>
 
       <h1 className="mt-8 text-center text-2xl font-semibold text-stone-900">

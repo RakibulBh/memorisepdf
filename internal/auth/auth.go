@@ -17,7 +17,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
-	"github.com/RakibulBh/unmemorize/internal/store"
+	"github.com/RakibulBh/memorisepdf/internal/store"
 )
 
 // How long a half-finished sign-in stays valid before it has to be restarted.

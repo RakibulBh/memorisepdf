@@ -10,12 +10,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/RakibulBh/unmemorize/internal/auth"
-	"github.com/RakibulBh/unmemorize/internal/config"
-	"github.com/RakibulBh/unmemorize/internal/files"
-	"github.com/RakibulBh/unmemorize/internal/generate"
-	"github.com/RakibulBh/unmemorize/internal/store"
-	"github.com/RakibulBh/unmemorize/internal/tika"
+	"github.com/RakibulBh/memorisepdf/internal/auth"
+	"github.com/RakibulBh/memorisepdf/internal/config"
+	"github.com/RakibulBh/memorisepdf/internal/files"
+	"github.com/RakibulBh/memorisepdf/internal/generate"
+	"github.com/RakibulBh/memorisepdf/internal/store"
+	"github.com/RakibulBh/memorisepdf/internal/tika"
 )
 
 type Server struct {

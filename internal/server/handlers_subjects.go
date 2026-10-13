@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/RakibulBh/unmemorize/internal/auth"
+	"github.com/RakibulBh/memorisepdf/internal/auth"
 )
 
 // The longest a subject or module name may be.

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/RakibulBh/unmemorize/internal/auth"
+	"github.com/RakibulBh/memorisepdf/internal/auth"
 )
 
 // Sends somebody off to Google to sign in.

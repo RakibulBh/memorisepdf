@@ -83,7 +83,7 @@ func Load() (Config, error) {
 			RedirectURL:  str("GOOGLE_REDIRECT_URL", appURL+"/auth/google/callback"),
 		},
 		Session: Session{
-			CookieName: str("SESSION_COOKIE", "unmemorize_session"),
+			CookieName: str("SESSION_COOKIE", "memorisepdf_session"),
 			TTL:        dur("SESSION_TTL", 30*24*time.Hour),
 			Secure:     boolean("SESSION_SECURE", env != "development"),
 		},
@@ -158,9 +158,9 @@ func databaseURL() string {
 
 	dsn := url.URL{
 		Scheme: "postgres",
-		User:   url.UserPassword(str("DB_USER", "unmemorize"), password),
+		User:   url.UserPassword(str("DB_USER", "memorisepdf"), password),
 		Host:   net.JoinHostPort(str("DB_HOST", "localhost"), str("DB_PORT", "5432")),
-		Path:   "/" + str("DB_NAME", "unmemorize"),
+		Path:   "/" + str("DB_NAME", "memorisepdf"),
 	}
 
 	query := url.Values{}

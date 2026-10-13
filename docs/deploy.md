@@ -8,7 +8,7 @@ internet and no self-hosted runner is involved.
 ```
 push to main
   └─ test    go vet · go test (against a real Postgres) · tsc · eslint
-  └─ build   docker build ×2 → ghcr.io/rakibulbh/unmemorize-{api,web}@sha256:…
+  └─ build   docker build ×2 → ghcr.io/rakibulbh/memorisepdf-{api,web}@sha256:…
   └─ deploy  tailscale up (tag:ci) → ssh → docker compose up -d
              └─ waits for /ready, which checks Postgres and Tika too
 ```
@@ -85,8 +85,8 @@ Services** → **Credentials** → **Create credentials** → **OAuth client ID*
 
 | Field | Value |
 | --- | --- |
-| Authorised JavaScript origins | `https://unmemorize.example.com` |
-| Authorised redirect URIs | `https://unmemorize.example.com/auth/google/callback` |
+| Authorised JavaScript origins | `https://memorisepdf.example.com` |
+| Authorised redirect URIs | `https://memorisepdf.example.com/auth/google/callback` |
 
 The redirect URI must match `APP_URL` + `/auth/google/callback` **exactly**,
 including the scheme and any trailing path. A mismatch gives
@@ -119,7 +119,7 @@ Optional overrides:
 
 | variable | default | notes |
 | --- | --- | --- |
-| `DEPLOY_PATH` | `apps/unmemorize` | relative to the ssh user's home, or absolute |
+| `DEPLOY_PATH` | `apps/memorisepdf` | relative to the ssh user's home, or absolute |
 | `DEPLOY_PORT` | `8080` | host port the api binds on, localhost only |
 
 `DEPLOY_HOST` is the tailnet address deliberately. A GitHub runner has no route
@@ -131,9 +131,9 @@ Needs Docker with the compose plugin, the deploy key authorised, and the
 `proxy-network` that nginx-proxy-manager uses. Then create the env file:
 
 ```sh
-mkdir -p ~/apps/unmemorize/data
+mkdir -p ~/apps/memorisepdf/data
 
-cat > ~/apps/unmemorize/.env <<'EOF'
+cat > ~/apps/memorisepdf/.env <<'EOF'
 # Database. This is the only database password you set. Compose creates the
 # database user with it and passes it through to the app, which builds and
 # escapes the connection string itself -- so any characters are fine here.
@@ -142,8 +142,8 @@ POSTGRES_PASSWORD=<a long random string>
 ENV=production
 
 # Must be the public HTTPS address. Google redirects back to it.
-APP_URL=https://unmemorize.example.com
-WEB_URL=https://unmemorize.example.com
+APP_URL=https://memorisepdf.example.com
+WEB_URL=https://memorisepdf.example.com
 
 GOOGLE_CLIENT_ID=<from step 3>
 GOOGLE_CLIENT_SECRET=<from step 3>
@@ -162,7 +162,7 @@ GENERATE_RATE_LIMIT=20
 LOG_LEVEL=info
 EOF
 
-chmod 600 ~/apps/unmemorize/.env
+chmod 600 ~/apps/memorisepdf/.env
 ```
 
 The workflow refuses to deploy if this file is missing or if any of
@@ -184,9 +184,9 @@ most easily missed, and without it the frontend loads but every request fails.
 
 | | Forward to | Why |
 | --- | --- | --- |
-| Default | `unmemorize-web:3000` | the pages |
-| `/api` | `unmemorize-api:8080` | the JSON API |
-| `/auth` | `unmemorize-api:8080` | the Google sign-in round trip |
+| Default | `memorisepdf-web:3000` | the pages |
+| `/api` | `memorisepdf-api:8080` | the JSON API |
+| `/auth` | `memorisepdf-api:8080` | the Google sign-in round trip |
 
 In nginx-proxy-manager, the extra two go under the proxy host's **Custom
 locations** tab. Request a Let's Encrypt certificate on the **SSL** tab and turn
@@ -218,7 +218,7 @@ manually from the Actions tab via **Run workflow**.
 ## Operating
 
 ```sh
-cd ~/apps/unmemorize
+cd ~/apps/memorisepdf
 docker compose logs -f api
 docker compose ps
 docker compose restart api
@@ -228,8 +228,8 @@ Records also go to `data/app.log`, so they survive a restart and can be read
 without docker:
 
 ```sh
-tail -f ~/apps/unmemorize/data/app.log
-grep '"generation failed"' ~/apps/unmemorize/data/app.log
+tail -f ~/apps/memorisepdf/data/app.log
+grep '"generation failed"' ~/apps/memorisepdf/data/app.log
 ```
 
 The file rolls to `app.log.1` at 8 MB, keeping one previous generation.
@@ -242,10 +242,10 @@ Two things hold state, and you need both:
 
 ```sh
 # The database: subjects, modules, and everything generated.
-docker compose exec -T db pg_dump -U unmemorize unmemorize | gzip > unmemorize-$(date +%F).sql.gz
+docker compose exec -T db pg_dump -U memorisepdf memorisepdf | gzip > memorisepdf-$(date +%F).sql.gz
 
 # The uploaded lecture files.
-tar czf unmemorize-files-$(date +%F).tar.gz -C ~/apps/unmemorize data/files
+tar czf memorisepdf-files-$(date +%F).tar.gz -C ~/apps/memorisepdf data/files
 ```
 
 A database without the files leaves every module pointing at lectures that are

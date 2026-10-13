@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/RakibulBh/unmemorize/internal/files"
+	"github.com/RakibulBh/memorisepdf/internal/files"
 )
 
 // Answers that the server is running. Used by the deploy health check.

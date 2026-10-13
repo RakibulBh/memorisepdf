@@ -51,7 +51,7 @@ dev-logs:
 	$(COMPOSE) logs -f
 
 psql:
-	$(COMPOSE) exec db psql -U unmemorize -d unmemorize
+	$(COMPOSE) exec db psql -U memorisepdf -d memorisepdf
 
 ## Everything CI runs
 

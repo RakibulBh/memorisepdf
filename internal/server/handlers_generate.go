@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RakibulBh/unmemorize/internal/auth"
-	"github.com/RakibulBh/unmemorize/internal/generate"
-	"github.com/RakibulBh/unmemorize/internal/llm"
-	"github.com/RakibulBh/unmemorize/internal/store"
+	"github.com/RakibulBh/memorisepdf/internal/auth"
+	"github.com/RakibulBh/memorisepdf/internal/generate"
+	"github.com/RakibulBh/memorisepdf/internal/llm"
+	"github.com/RakibulBh/memorisepdf/internal/store"
 )
 
 type generateRequest struct {

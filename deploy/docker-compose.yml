@@ -1,7 +1,7 @@
 services:
   api:
-    image: ${API_IMAGE:-ghcr.io/rakibulbh/unmemorize-api:latest}
-    container_name: unmemorize-api
+    image: ${API_IMAGE:-ghcr.io/rakibulbh/memorisepdf-api:latest}
+    container_name: memorisepdf-api
     restart: unless-stopped
     # Sits at the compose project root, which is the one place compose reads
     # for variable interpolation without being told. Keeping it here means
@@ -15,8 +15,8 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_NAME=unmemorize
-      - DB_USER=unmemorize
+      - DB_NAME=memorisepdf
+      - DB_USER=memorisepdf
       - TIKA_URL=http://tika:9998
       - DATA_DIR=/data
       - PORT=8080
@@ -36,7 +36,7 @@ services:
     networks:
       # Reaches db and tika here. Nothing else is on this network.
       - backend
-      # Lets nginx-proxy-manager reach it as unmemorize-api:8080.
+      # Lets nginx-proxy-manager reach it as memorisepdf-api:8080.
       - proxy-network
     logging:
       driver: json-file
@@ -45,8 +45,8 @@ services:
         max-file: "3"
 
   web:
-    image: ${WEB_IMAGE:-ghcr.io/rakibulbh/unmemorize-web:latest}
-    container_name: unmemorize-web
+    image: ${WEB_IMAGE:-ghcr.io/rakibulbh/memorisepdf-web:latest}
+    container_name: memorisepdf-web
     restart: unless-stopped
     environment:
       PORT: 3000
@@ -64,11 +64,11 @@ services:
 
   db:
     image: postgres:18-alpine
-    container_name: unmemorize-db
+    container_name: memorisepdf-db
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=unmemorize
-      - POSTGRES_DB=unmemorize
+      - POSTGRES_USER=memorisepdf
+      - POSTGRES_DB=memorisepdf
       # Listed by name with no value: compose passes it through from the .env
       # beside this file, so no password is written into this file. Postgres
       # refuses to initialise without one, and the deploy workflow checks the
@@ -83,7 +83,7 @@ services:
     healthcheck:
       # A real query, not pg_isready: that reports success while the
       # database is still being created during first-boot init.
-      test: ["CMD-SHELL", "psql -U unmemorize -d unmemorize -c 'select 1' || exit 1"]
+      test: ["CMD-SHELL", "psql -U memorisepdf -d memorisepdf -c 'select 1' || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -100,7 +100,7 @@ services:
     # The -full variant bundles Tesseract, so a scanned or image-only lecture
     # deck still yields text. The plain image would return nothing for those.
     image: apache/tika:3.3.1.0-full
-    container_name: unmemorize-tika
+    container_name: memorisepdf-tika
     restart: unless-stopped
     # Not published to the host, and on the backend network only: Tika will
     # parse whatever it is handed, so the api is the only thing that can reach

@@ -14,7 +14,7 @@ import (
 // TEST_DATABASE_URL is set, so `go test ./...` still works without Docker.
 // Start one with `make dev-up`, then:
 //
-//	TEST_DATABASE_URL=postgres://unmemorize:unmemorize@localhost:5432/unmemorize?sslmode=disable go test ./internal/store
+//	TEST_DATABASE_URL=postgres://memorisepdf:memorisepdf@localhost:5432/memorisepdf?sslmode=disable go test ./internal/store
 
 // Opens a store against the test database, or skips the test if there isn't one.
 func testStore(t *testing.T) *Store {

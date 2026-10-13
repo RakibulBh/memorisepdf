@@ -10,14 +10,14 @@ const lora = Lora({ variable: "--font-lora", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "Unmemorize — turn lecture slides into quizzes and flashcards",
-    template: "%s · Unmemorize",
+    default: "MemorisePDF — turn lecture slides into quizzes and flashcards",
+    template: "%s · MemorisePDF",
   },
   description:
     "Organise your lectures into subjects and modules, then turn each module's slides into quizzes, flashcards and teaching cards.",
   keywords: ["flashcards", "quizzes", "revision", "lecture notes", "study tools"],
   openGraph: {
-    title: "Unmemorize",
+    title: "MemorisePDF",
     description:
       "Turn your lecture slides into quizzes, flashcards and teaching cards.",
     type: "website",

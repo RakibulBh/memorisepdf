@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/RakibulBh/unmemorize/internal/files"
-	"github.com/RakibulBh/unmemorize/internal/llm"
-	"github.com/RakibulBh/unmemorize/internal/store"
-	"github.com/RakibulBh/unmemorize/internal/tika"
+	"github.com/RakibulBh/memorisepdf/internal/files"
+	"github.com/RakibulBh/memorisepdf/internal/llm"
+	"github.com/RakibulBh/memorisepdf/internal/store"
+	"github.com/RakibulBh/memorisepdf/internal/tika"
 )
 
 type Pipeline struct {

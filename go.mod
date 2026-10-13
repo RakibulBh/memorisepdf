@@ -1,4 +1,4 @@
-module github.com/RakibulBh/unmemorize
+module github.com/RakibulBh/memorisepdf
 
 go 1.27.0
 

@@ -1,4 +1,4 @@
-# Unmemorize 📚 — your lectures, worth revising from
+# MemorisePDF 📚 — your lectures, worth revising from
 
 Organise a course into **subjects** and **modules**, upload each module's
 lecture slides, and turn them into quizzes, flashcards and teaching cards.
@@ -100,7 +100,7 @@ enforced by the schema and cannot be checked without one. They skip unless you
 point them at a database:
 
 ```bash
-TEST_DATABASE_URL='postgres://unmemorize:unmemorize@localhost:5432/unmemorize?sslmode=disable' \
+TEST_DATABASE_URL='postgres://memorisepdf:memorisepdf@localhost:5432/memorisepdf?sslmode=disable' \
   go test ./internal/store
 ```
 

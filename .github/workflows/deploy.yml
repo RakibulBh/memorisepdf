@@ -25,19 +25,19 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_USER: unmemorize
-          POSTGRES_PASSWORD: unmemorize
-          POSTGRES_DB: unmemorize
+          POSTGRES_USER: memorisepdf
+          POSTGRES_PASSWORD: memorisepdf
+          POSTGRES_DB: memorisepdf
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "psql -U unmemorize -d unmemorize -c 'select 1'"
+          --health-cmd "psql -U memorisepdf -d memorisepdf -c 'select 1'"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
     env:
-      TEST_DATABASE_URL: postgres://unmemorize:unmemorize@localhost:5432/unmemorize?sslmode=disable
+      TEST_DATABASE_URL: postgres://memorisepdf:memorisepdf@localhost:5432/memorisepdf?sslmode=disable
 
     steps:
       - uses: actions/checkout@v7
@@ -115,7 +115,7 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/unmemorize-api:latest
+          tags: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/memorisepdf-api:latest
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
@@ -125,7 +125,7 @@ jobs:
           context: web
           file: web/Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/unmemorize-web:latest
+          tags: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/memorisepdf-web:latest
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
@@ -136,8 +136,8 @@ jobs:
           API_DIGEST: ${{ steps.build-api.outputs.digest }}
           WEB_DIGEST: ${{ steps.build-web.outputs.digest }}
         run: |
-          echo "api=${REGISTRY}/${OWNER}/unmemorize-api@${API_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "web=${REGISTRY}/${OWNER}/unmemorize-web@${WEB_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "api=${REGISTRY}/${OWNER}/memorisepdf-api@${API_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "web=${REGISTRY}/${OWNER}/memorisepdf-web@${WEB_DIGEST}" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: build
@@ -148,7 +148,7 @@ jobs:
     env:
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'apps/unmemorize' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'apps/memorisepdf' }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '8080' }}
     steps:
       - uses: actions/checkout@v7
@@ -229,7 +229,7 @@ jobs:
         run: |
           for _ in $(seq 1 20); do
             if ssh deploy-target "curl -fsS -o /dev/null http://localhost:${DEPLOY_PORT}/ready" 2>/dev/null; then
-              echo "unmemorize is ready on ${DEPLOY_HOST}"
+              echo "memorisepdf is ready on ${DEPLOY_HOST}"
               exit 0
             fi
             sleep 5

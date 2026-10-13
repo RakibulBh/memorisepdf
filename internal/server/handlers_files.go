@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/RakibulBh/unmemorize/internal/auth"
-	"github.com/RakibulBh/unmemorize/internal/files"
-	"github.com/RakibulBh/unmemorize/internal/store"
+	"github.com/RakibulBh/memorisepdf/internal/auth"
+	"github.com/RakibulBh/memorisepdf/internal/files"
+	"github.com/RakibulBh/memorisepdf/internal/store"
 )
 
 // Lists a module's lecture files and which kinds of material each has produced.

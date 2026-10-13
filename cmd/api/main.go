@@ -1,4 +1,4 @@
-// Command api serves the Unmemorize backend.
+// Command api serves the MemorisePDF backend.
 package main
 
 import (
@@ -13,16 +13,16 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/RakibulBh/unmemorize/internal/auth"
-	"github.com/RakibulBh/unmemorize/internal/config"
-	"github.com/RakibulBh/unmemorize/internal/files"
-	"github.com/RakibulBh/unmemorize/internal/generate"
-	"github.com/RakibulBh/unmemorize/internal/llm"
-	"github.com/RakibulBh/unmemorize/internal/logging"
-	"github.com/RakibulBh/unmemorize/internal/migrations"
-	"github.com/RakibulBh/unmemorize/internal/server"
-	"github.com/RakibulBh/unmemorize/internal/store"
-	"github.com/RakibulBh/unmemorize/internal/tika"
+	"github.com/RakibulBh/memorisepdf/internal/auth"
+	"github.com/RakibulBh/memorisepdf/internal/config"
+	"github.com/RakibulBh/memorisepdf/internal/files"
+	"github.com/RakibulBh/memorisepdf/internal/generate"
+	"github.com/RakibulBh/memorisepdf/internal/llm"
+	"github.com/RakibulBh/memorisepdf/internal/logging"
+	"github.com/RakibulBh/memorisepdf/internal/migrations"
+	"github.com/RakibulBh/memorisepdf/internal/server"
+	"github.com/RakibulBh/memorisepdf/internal/store"
+	"github.com/RakibulBh/memorisepdf/internal/tika"
 )
 
 // How long the server is given to finish in-flight requests when stopping. A

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/RakibulBh/unmemorize/internal/store"
+	"github.com/RakibulBh/memorisepdf/internal/store"
 )
 
 type contextKey struct{}

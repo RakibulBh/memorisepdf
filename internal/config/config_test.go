@@ -9,8 +9,8 @@ import (
 func TestDatabaseURLBuildsFromParts(t *testing.T) {
 	t.Setenv("DB_HOST", "db")
 	t.Setenv("DB_PORT", "5432")
-	t.Setenv("DB_NAME", "unmemorize")
-	t.Setenv("DB_USER", "unmemorize")
+	t.Setenv("DB_NAME", "memorisepdf")
+	t.Setenv("DB_USER", "memorisepdf")
 	t.Setenv("DB_PASSWORD", "plain-password")
 
 	got := databaseURL()
@@ -25,14 +25,14 @@ func TestDatabaseURLBuildsFromParts(t *testing.T) {
 	if parsed.Host != "db:5432" {
 		t.Errorf("host = %q, want db:5432", parsed.Host)
 	}
-	if parsed.Path != "/unmemorize" {
-		t.Errorf("path = %q, want /unmemorize", parsed.Path)
+	if parsed.Path != "/memorisepdf" {
+		t.Errorf("path = %q, want /memorisepdf", parsed.Path)
 	}
 
 	user := parsed.User.Username()
 	password, _ := parsed.User.Password()
-	if user != "unmemorize" {
-		t.Errorf("user = %q, want unmemorize", user)
+	if user != "memorisepdf" {
+		t.Errorf("user = %q, want memorisepdf", user)
 	}
 	if password != "plain-password" {
 		t.Errorf("password = %q, want it to survive the round trip", password)

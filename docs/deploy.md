@@ -134,9 +134,10 @@ Needs Docker with the compose plugin, the deploy key authorised, and the
 mkdir -p ~/apps/unmemorize/data
 
 cat > ~/apps/unmemorize/.env <<'EOF'
-# Database. Keep it alphanumeric: it is substituted into a URL, where a #, @
-# or / would be read as part of the URL rather than as the password.
-POSTGRES_PASSWORD=<a long random alphanumeric string>
+# Database. Compose creates the database user with this and hands it to the app,
+# which builds and escapes the connection string itself -- so any characters are
+# fine here.
+POSTGRES_PASSWORD=<a long random string>
 
 ENV=production
 

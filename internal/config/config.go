@@ -3,6 +3,8 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -74,7 +76,7 @@ func Load() (Config, error) {
 		AppURL:      appURL,
 		WebURL:      strings.TrimSuffix(str("WEB_URL", "http://localhost:3000"), "/"),
 		DataDir:     str("DATA_DIR", "./data"),
-		DatabaseURL: str("DATABASE_URL", ""),
+		DatabaseURL: databaseURL(),
 		Google: Google{
 			ClientID:     str("GOOGLE_CLIENT_ID", ""),
 			ClientSecret: str("GOOGLE_CLIENT_SECRET", ""),
@@ -112,7 +114,7 @@ func Load() (Config, error) {
 
 	var missing []string
 	if cfg.DatabaseURL == "" {
-		missing = append(missing, "DATABASE_URL")
+		missing = append(missing, "DB_PASSWORD (or a whole DATABASE_URL)")
 	}
 	if cfg.Google.ClientID == "" {
 		missing = append(missing, "GOOGLE_CLIENT_ID")
@@ -128,6 +130,41 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// Works out how to reach Postgres, assembling the connection string from its
+// separate parts rather than having one written out by hand.
+//
+// A password written into a URL has to be percent-encoded by whoever writes it,
+// which is easy to get wrong and means a config file or compose file ends up
+// holding something that looks exactly like a leaked credential. Building it
+// here keeps the password a plain value everywhere it is configured, and lets
+// it contain any character.
+//
+// DATABASE_URL still wins when it is set, which is what tests, CI and an
+// external managed database use.
+func databaseURL() string {
+	if given := str("DATABASE_URL", ""); given != "" {
+		return given
+	}
+
+	password := str("DB_PASSWORD", "")
+	if password == "" {
+		return ""
+	}
+
+	dsn := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(str("DB_USER", "unmemorize"), password),
+		Host:   net.JoinHostPort(str("DB_HOST", "localhost"), str("DB_PORT", "5432")),
+		Path:   "/" + str("DB_NAME", "unmemorize"),
+	}
+
+	query := url.Values{}
+	query.Set("sslmode", str("DB_SSLMODE", "disable"))
+	dsn.RawQuery = query.Encode()
+
+	return dsn.String()
 }
 
 // str reads a text setting, falling back to a default when it is not set.
